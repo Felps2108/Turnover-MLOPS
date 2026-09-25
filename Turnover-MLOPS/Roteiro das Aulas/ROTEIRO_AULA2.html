@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLOps Aula 2 — Mudança de população</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050a14; --cyan: #00e5ff; --green: #00ff88; --orange: #ff6b35;
+  --purple: #7c3aed; --pink: #f472b6; --text: #e8f4f8; --muted: #7fa8c0;
+  --card: rgba(255,255,255,0.04); --border: rgba(0,229,255,0.15);
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',sans-serif; }
+#bg { position:fixed; inset:0; z-index:0; opacity:.3; pointer-events:none; }
+#progress-bar { position:fixed; top:0; left:0; height:3px; z-index:200; background:linear-gradient(90deg, var(--cyan), var(--purple)); transition: width .4s ease; }
+#topbar { position:fixed; top:0; left:0; right:0; height:52px; z-index:150; background:rgba(5,10,20,.88); backdrop-filter:blur(14px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 32px; }
+.tb-label { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--cyan); letter-spacing:2px; text-transform:uppercase; }
+.tb-counter { font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted); }
+.tb-title { font-size:13px; color:var(--muted); max-width:360px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#slides { position:fixed; inset:0; z-index:1; }
+.slide { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:72px 60px 80px; opacity:0; pointer-events:none; transition: opacity .5s ease, transform .5s ease; transform: translateX(60px); overflow-y:auto; }
+.slide.active { opacity:1; pointer-events:all; transform:translateX(0); }
+.slide.prev { opacity:0; pointer-events:none; transform:translateX(-60px); }
+.slide-inner { width:100%; max-width:1080px; margin:auto 0; }
+#nav-prev, #nav-next { position:fixed; top:50%; z-index:200; transform:translateY(-50%); width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:rgba(5,10,20,.7); backdrop-filter:blur(8px); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--cyan); transition:all .2s; user-select:none; }
+#nav-prev { left:16px; } #nav-next { right:16px; }
+#nav-prev:hover, #nav-next:hover { background:rgba(0,229,255,.12); border-color:var(--cyan); }
+#nav-prev.disabled, #nav-next.disabled { opacity:.25; pointer-events:none; }
+#dots { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:200; flex-wrap:wrap; max-width:70%; justify-content:center; }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--muted); opacity:.4; cursor:pointer; transition:all .3s; }
+.dot.active { background:var(--cyan); opacity:1; transform:scale(1.3); }
+.dot.done { background:var(--green); opacity:.8; }
+
+.tag  { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--cyan);   letter-spacing:3px; text-transform:uppercase; margin-bottom:10px; display:block; }
+.gtag { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--green);  letter-spacing:3px; text-transform:uppercase; margin-bottom:10px; display:block; }
+.ptag { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--purple); letter-spacing:3px; text-transform:uppercase; margin-bottom:10px; display:block; }
+.otag { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--orange); letter-spacing:3px; text-transform:uppercase; margin-bottom:10px; display:block; }
+
+h1.hero-title { font-family:'Syne',sans-serif; font-size:clamp(2.2rem,4.6vw,4rem); font-weight:800; line-height:1.08; margin-bottom:20px; }
+h2.sec-title  { font-family:'Syne',sans-serif; font-size:clamp(1.4rem,3vw,2.3rem); font-weight:800; line-height:1.18; margin-bottom:12px; }
+h3.slide-h3   { font-family:'Syne',sans-serif; font-size:1.15rem; font-weight:700; margin-bottom:14px; }
+p.lead { color:var(--muted); font-size:.98rem; line-height:1.7; margin-bottom:22px; }
+
+.badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,229,255,.08); border:1px solid var(--border); border-radius:20px; padding:6px 16px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--cyan); letter-spacing:1px; margin-bottom:26px; width:fit-content; }
+.badge::before { content:''; width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
+.hero-q { background:linear-gradient(135deg,rgba(0,229,255,.06),rgba(124,58,237,.06)); border:1px solid rgba(0,229,255,.2); border-left:4px solid var(--cyan); border-radius:12px; padding:20px 26px; font-size:1.02rem; color:var(--text); max-width:800px; margin-top:6px; animation:fadeUp .8s ease both .3s; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+
+.card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+@media(max-width:680px){.g2,.g3{grid-template-columns:1fr}}
+.pill-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
+.pill { background:rgba(0,255,136,.07); border:1px solid rgba(0,255,136,.25); border-radius:20px; padding:5px 14px; font-size:12px; color:var(--green); font-family:'IBM Plex Mono',monospace; }
+.bridge { background:linear-gradient(135deg,rgba(0,229,255,.05),rgba(124,58,237,.05)); border:1px solid rgba(0,229,255,.2); border-radius:14px; padding:22px 26px; }
+
+.bloco-mark { display:inline-flex; align-items:center; gap:10px; margin-bottom:14px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase; border-radius:20px; padding:5px 15px; }
+.bl-a { background:rgba(0,229,255,.09);  border:1px solid rgba(0,229,255,.35);  color:var(--cyan); }
+.bl-b { background:rgba(255,107,53,.09); border:1px solid rgba(255,107,53,.35); color:var(--orange); }
+.bl-c { background:rgba(0,255,136,.08);  border:1px solid rgba(0,255,136,.32);  color:var(--green); }
+
+.tbl { width:100%; border-collapse:collapse; font-size:.82rem; }
+.tbl th { text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--cyan); padding:9px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.tbl td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--muted); vertical-align:top; line-height:1.5; }
+.tbl td strong, .tbl td code { color:var(--text); }
+.tbl td code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3); padding:1px 6px; border-radius:4px; font-size:.78rem; }
+.tbl tbody tr:hover td { background:rgba(0,229,255,.03); }
+.tbl tr.sep-a td { background:rgba(0,229,255,.05); }
+.tbl tr.sep-c td { background:rgba(0,255,136,.04); }
+
+.code { background:rgba(0,0,0,.42); border:1px solid var(--border); border-radius:10px; padding:14px 18px; font-family:'IBM Plex Mono',monospace; font-size:.74rem; line-height:1.7; overflow-x:auto; white-space:pre; color:#bfe4f2; max-height:52vh; overflow-y:auto; }
+.code .k { color:var(--pink); }
+.code .s { color:var(--green); }
+.code .c { color:var(--muted); font-style:italic; }
+.code .h { color:var(--cyan); font-weight:500; }
+.code .o { color:var(--orange); }
+.code-wrap { border:1px solid var(--border); border-radius:9px; overflow:hidden; margin-bottom:14px; transition:border-color .2s, box-shadow .2s; }
+.code-wrap.open { border-color:var(--cyan); box-shadow:0 0 0 1px rgba(0,229,255,.08); }
+.code-header { display:flex; justify-content:space-between; align-items:center; padding:9px 14px; background:rgba(0,0,0,.55); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; transition:background .15s; gap:12px; }
+.code-header:hover { background:rgba(0,229,255,.06); }
+.code-header .fname { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--cyan); }
+.code-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.code-header .lbadge { font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+.code-toggle-btn { font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.5px; color:var(--cyan); border:1px solid var(--border); border-radius:20px; padding:3px 11px; white-space:nowrap; transition:.2s; background:rgba(0,229,255,.05); }
+.code-toggle-btn::before { content:'▸ '; }
+.code-wrap.open .code-toggle-btn { color:var(--bg); background:var(--green); border-color:var(--green); font-weight:600; }
+.code-wrap.open .code-toggle-btn::before { content:'▾ '; }
+.copy-btn { font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.5px; color:var(--purple); border:1px solid rgba(124,58,237,.4); border-radius:20px; padding:3px 11px; white-space:nowrap; transition:.2s; background:rgba(124,58,237,.08); cursor:pointer; display:none; }
+.copy-btn:hover { background:rgba(124,58,237,.2); color:var(--pink); }
+.copy-btn.done { color:var(--bg); background:var(--green); border-color:var(--green); font-weight:600; }
+.code-wrap.open .copy-btn { display:inline-block; }
+.code-wrap .code { display:none; border:none; border-radius:0; }
+.code-wrap.open .code { display:block; animation:codeIn .28s ease; }
+@keyframes codeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+.step-marker { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+.step-num { font-family:'Syne',sans-serif; font-weight:800; font-size:1.6rem; width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:rgba(0,229,255,.08); border:1px solid var(--border); color:var(--cyan); flex-shrink:0; }
+.step-num.b { background:rgba(255,107,53,.08); border-color:rgba(255,107,53,.3); color:var(--orange); }
+.step-num.c { background:rgba(0,255,136,.07); border-color:rgba(0,255,136,.3); color:var(--green); }
+.step-meta { display:flex; flex-direction:column; gap:2px; }
+.step-file { font-family:'IBM Plex Mono',monospace; font-size:.92rem; color:var(--text); }
+.step-obj { font-size:.78rem; color:var(--muted); }
+
+.callout { border-left:3px solid; border-radius:0 8px 8px 0; padding:12px 16px; margin:12px 0 0; font-size:.83rem; line-height:1.6; }
+.callout .ct { font-family:'IBM Plex Mono',monospace; font-weight:500; font-size:9.5px; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:5px; }
+.callout p { margin:0; color:var(--muted); font-size:.83rem; }
+.callout p + p { margin-top:8px; }
+.callout code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3); padding:1px 6px; border-radius:4px; color:var(--text); font-size:.78rem; }
+.co-ok   { border-color:var(--green);  background:rgba(0,255,136,.05); } .co-ok .ct { color:var(--green); }
+.co-warn { border-color:var(--orange); background:rgba(255,107,53,.05); } .co-warn .ct { color:var(--orange); }
+.co-info { border-color:var(--purple); background:rgba(124,58,237,.06); } .co-info .ct { color:#c4b5fd; }
+.co-err  { border-color:#ff4d6d; background:rgba(255,77,109,.06); } .co-err .ct { color:#ff8fa3; }
+
+.test-box { background:rgba(0,255,136,.04); border:1px solid rgba(0,255,136,.22); border-radius:12px; padding:16px 20px; margin-bottom:12px; }
+.test-box .tt { font-family:'Syne',sans-serif; font-weight:800; font-size:.88rem; color:var(--green); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.test-box ol, .test-box ul { margin-left:18px; }
+.test-box li { font-size:.83rem; color:var(--muted); line-height:1.65; margin-bottom:4px; }
+.test-box li strong, .test-box li code { color:var(--text); }
+.test-box code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3); padding:1px 6px; border-radius:4px; font-size:.78rem; }
+
+.qa { width:100%; border-collapse:collapse; font-size:.82rem; }
+.qa td { padding:10px; border-bottom:1px solid rgba(255,255,255,.06); color:var(--muted); vertical-align:top; line-height:1.55; }
+.qa td.n { color:var(--green); font-family:'IBM Plex Mono',monospace; width:26px; text-align:center; }
+.qa tr:last-child td { border-bottom:none; }
+.acao { color:var(--text); font-size:.85rem; }
+.qa code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3); padding:1px 6px; border-radius:4px; color:var(--text); font-size:.76rem; }
+
+.final-check { display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+.fc-item { display:flex; align-items:center; gap:12px; padding:9px 16px; background:var(--card); border:1px solid var(--border); border-radius:10px; opacity:0; transform:translateX(-16px); }
+.final-check.play .fc-item { animation:fcIn .5s ease forwards; }
+.final-check.play .fc-item:nth-child(1){animation-delay:.04s}
+.final-check.play .fc-item:nth-child(2){animation-delay:.12s}
+.final-check.play .fc-item:nth-child(3){animation-delay:.20s}
+.final-check.play .fc-item:nth-child(4){animation-delay:.28s}
+.final-check.play .fc-item:nth-child(5){animation-delay:.36s}
+.final-check.play .fc-item:nth-child(6){animation-delay:.44s}
+.final-check.play .fc-item:nth-child(7){animation-delay:.52s}
+.final-check.play .fc-item:nth-child(8){animation-delay:.60s}
+.final-check.play .fc-item:nth-child(9){animation-delay:.68s}
+.final-check.play .fc-item:nth-child(10){animation-delay:.76s}
+.final-check.play .fc-item:nth-child(11){animation-delay:.84s}
+.final-check.play .fc-item:nth-child(12){animation-delay:.92s}
+.final-check.play .fc-item:nth-child(13){animation-delay:1.00s}
+.final-check.play .fc-item:nth-child(14){animation-delay:1.08s}
+.final-check.play .fc-item:nth-child(15){animation-delay:1.16s}
+.final-check.play .fc-item:nth-child(13){animation-delay:1.00s}
+@keyframes fcIn { to{opacity:1;transform:translateX(0)} }
+.fc-check { width:20px; height:20px; border-radius:50%; border:1px solid var(--green); color:var(--green); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; }
+.fc-text { font-size:.82rem; color:var(--text); font-family:'IBM Plex Mono',monospace; }
+
+.yn { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:680px){ .yn{ grid-template-columns:1fr; } }
+.yn-col { border-radius:14px; padding:18px 20px; }
+.yn-yes { background:rgba(0,255,136,.05); border:1px solid rgba(0,255,136,.22); }
+.yn-no  { background:rgba(255,107,53,.05); border:1px solid rgba(255,107,53,.22); }
+.yn-col h4 { font-family:'Syne',sans-serif; font-size:.92rem; margin-bottom:12px; }
+.yn-col li { list-style:none; font-size:.82rem; color:var(--muted); line-height:1.55; padding:5px 0 5px 20px; position:relative; }
+.yn-yes li::before { content:'✓'; position:absolute; left:0; color:var(--green); }
+.yn-no  li::before { content:'✕'; position:absolute; left:0; color:var(--orange); }
+
+.next-pills { display:flex; flex-wrap:wrap; gap:10px; }
+.next-pill { font-family:'IBM Plex Mono',monospace; font-size:11.5px; padding:8px 15px; border-radius:20px; background:rgba(124,58,237,.08); border:1px solid rgba(124,58,237,.3); color:var(--pink); }
+.slide-scroll { overflow-y:auto; }
+.divider { height:1px; background:var(--border); margin:18px 0; }
+code.inline { font-family:'IBM Plex Mono',monospace; color:var(--cyan); background:rgba(0,229,255,.06); padding:1px 7px; border-radius:5px; font-size:.86em; }
+
+.ciclo { display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; margin:10px 0 6px; }
+.ci-step { flex:1; min-width:132px; border-radius:12px; padding:14px; background:var(--card); border:1px solid var(--border); font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--muted); line-height:1.5; }
+.ci-step .ci-n { display:block; font-size:.68rem; letter-spacing:1.5px; margin-bottom:6px; opacity:.75; }
+.ci-step .ci-t { display:block; font-size:.86rem; color:var(--text); margin-bottom:5px; font-family:'Syne',sans-serif; font-weight:700; }
+.ci-a { border-color:rgba(0,229,255,.4);  background:rgba(0,229,255,.06); } .ci-a .ci-n { color:var(--cyan); }
+.ci-b { border-color:rgba(255,107,53,.4); background:rgba(255,107,53,.06); } .ci-b .ci-n { color:var(--orange); }
+.ci-c { border-color:rgba(0,255,136,.35); background:rgba(0,255,136,.05); } .ci-c .ci-n { color:var(--green); }
+
+.cadeia { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 4px; }
+.cd-box { flex:1; min-width:150px; border-radius:10px; padding:13px 15px; text-align:center; background:rgba(255,77,109,.06); border:1px solid rgba(255,77,109,.28); font-family:'IBM Plex Mono',monospace; font-size:.74rem; color:#ffb3c1; line-height:1.5; }
+.cd-box.fim { background:rgba(255,77,109,.14); border-color:rgba(255,77,109,.5); color:#ff8fa3; font-weight:600; }
+.cd-arrow { color:#ff8fa3; font-size:1.3rem; flex-shrink:0; }
+@media(max-width:780px){ .cd-arrow{ transform:rotate(90deg); } }
+
+.juiz { background:rgba(0,255,136,.04); border:1px solid rgba(0,255,136,.22);
+        border-radius:14px; padding:18px 22px; margin:14px 0 20px; }
+.juiz h4 { font-family:'Syne',sans-serif; font-size:1rem; color:var(--green); margin-bottom:10px; }
+.juiz p { color:var(--muted); font-size:.86rem; line-height:1.7; }
+.juiz ol { margin:10px 0 12px 18px; }
+.juiz li { color:var(--muted); font-size:.85rem; line-height:1.65; margin-bottom:8px; }
+.juiz li b, .juiz p b { color:var(--text); }
+.juiz code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3);
+             padding:1px 6px; border-radius:4px; color:var(--text); font-size:.8rem; }
+.juiz .ressalva { border-left:2px solid var(--orange); padding-left:12px; margin-top:12px;
+                  font-size:.83rem; }
+
+.ui-tour { display:flex; flex-direction:column; gap:12px; margin:14px 0 18px; }
+.ui-item { display:flex; gap:14px; background:var(--card); border:1px solid var(--border);
+           border-radius:12px; padding:15px 18px; }
+.ui-n { font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; width:32px; height:32px;
+        border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        background:rgba(0,229,255,.1); border:1px solid var(--border); color:var(--cyan); }
+.ui-item h4 { font-family:'Syne',sans-serif; font-size:.95rem; margin-bottom:6px; }
+.ui-item p { color:var(--muted); font-size:.84rem; line-height:1.65; margin:0; }
+.ui-item p b { color:var(--text); }
+.ui-item code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.3);
+                padding:1px 6px; border-radius:4px; color:var(--text); font-size:.78rem; }
+.ui-q { margin-top:8px !important; color:var(--cyan) !important; font-size:.8rem !important; }
+.ui-q i { font-style:italic; opacity:.85; }
+
+.email { background:rgba(255,255,255,.03); border:1px solid var(--border);
+         border-left:3px solid var(--orange); border-radius:0 12px 12px 0;
+         padding:18px 22px; margin:14px 0 18px; }
+.em-cab { display:flex; flex-direction:column; gap:3px; padding-bottom:10px; margin-bottom:12px;
+          border-bottom:1px solid var(--border); font-family:'IBM Plex Mono',monospace;
+          font-size:11px; color:var(--muted); }
+.em-cab b { color:var(--orange); font-weight:500; }
+.email p { color:#d3e6ef; font-size:.88rem; line-height:1.75; margin-bottom:10px; }
+.email p:last-child { margin-bottom:0; }
+
+.hip { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 18px; }
+@media(max-width:700px){ .hip{ grid-template-columns:1fr; } }
+.hip-item { display:flex; gap:13px; background:var(--card); border:1px solid var(--border);
+            border-radius:12px; padding:15px 17px; }
+.hip-n { font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; width:30px; height:30px;
+         border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+         background:rgba(124,58,237,.12); border:1px solid rgba(124,58,237,.35); color:#c4b5fd; }
+.hip-item h4 { font-family:'Syne',sans-serif; font-size:.9rem; margin-bottom:5px; }
+.hip-item p { color:var(--muted); font-size:.8rem; line-height:1.6; margin:0; }
+.hip-item p b { color:var(--text); }
+.hip-acao { margin-top:7px !important; color:var(--cyan) !important; font-size:.78rem !important;
+            font-family:'IBM Plex Mono',monospace; }
+
+.ev { display:flex; flex-direction:column; gap:11px; margin:14px 0 18px; }
+.ev-item { display:flex; gap:14px; background:rgba(0,255,136,.04);
+           border:1px solid rgba(0,255,136,.2); border-radius:12px; padding:15px 18px; }
+.ev-n { font-family:'Syne',sans-serif; font-weight:800; font-size:1rem; width:28px; height:28px;
+        border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        background:rgba(0,255,136,.1); border:1px solid rgba(0,255,136,.35); color:var(--green); }
+.ev-item h4 { font-family:'Syne',sans-serif; font-size:.92rem; margin-bottom:6px; }
+.ev-item p { color:var(--muted); font-size:.83rem; line-height:1.65; margin:0; }
+.ev-item code { font-family:'IBM Plex Mono',monospace; background:rgba(0,0,0,.35);
+                padding:1px 6px; border-radius:4px; color:var(--text); font-size:.78rem; }
+.ev-conc { margin-top:7px !important; padding-left:11px; border-left:2px solid var(--green); }
+.ev-conc b { color:var(--green); }
+
+.lacuna { background:linear-gradient(135deg,rgba(255,107,53,.06),rgba(124,58,237,.06));
+          border:1px solid rgba(255,107,53,.25); border-radius:14px; padding:18px 22px; }
+.lacuna h4 { font-family:'Syne',sans-serif; font-size:1rem; color:var(--orange); margin-bottom:10px; }
+.lacuna h4 i { font-style:italic; }
+.lacuna p { color:var(--muted); font-size:.86rem; line-height:1.72; margin-bottom:10px; }
+.lacuna p b { color:var(--text); }
+.lac-fecho { border-left:2px solid var(--orange); padding-left:12px; margin-bottom:0 !important;
+             color:var(--text) !important; }
+
+.dois-mundos { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0; }
+@media(max-width:700px){ .dois-mundos{ grid-template-columns:1fr; } }
+.dm-col { background:var(--card); border:1px solid var(--border); border-radius:13px; padding:17px 20px; }
+.dm-col.destaque { background:rgba(0,229,255,.06); border-color:rgba(0,229,255,.35); }
+.dm-col h4 { font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:1.8px;
+             text-transform:uppercase; color:var(--muted); margin-bottom:11px; }
+.dm-col.destaque h4 { color:var(--cyan); }
+.dm-q { font-size:.95rem; color:var(--text); line-height:1.55; margin-bottom:10px;
+        font-family:'Syne',sans-serif; }
+.dm-r { color:var(--muted); font-size:.83rem; line-height:1.65; margin:0; }
+
+.agflow { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap; margin:6px 0 4px; }
+.agnode { flex:1; min-width:140px; border-radius:12px; padding:14px 16px; font-family:'IBM Plex Mono',monospace; font-size:.76rem; text-align:center; background:var(--card); border:1px solid var(--border); color:var(--muted); }
+.agnode .an-name { font-size:.86rem; color:var(--text); display:block; margin-bottom:6px; }
+.agnode.has  { background:rgba(0,255,136,.06); border-color:rgba(0,255,136,.35); } .agnode.has .an-name { color:var(--green); }
+.agnode.hasnt { background:rgba(255,107,53,.05); border-color:rgba(255,107,53,.25); } .agnode.hasnt .an-name { color:var(--orange); }
+@media(prefers-reduced-motion:reduce){ .slide,.fc-item,.badge::before{ transition:none!important; animation:none!important; } }
+
+/* ═══════════════════ widgets interativos ═══════════════════ */
+.wid { background:rgba(0,0,0,.28); border:1px solid var(--border); border-radius:14px;
+       padding:16px 18px; margin:14px 0 18px; }
+.wid-cab { display:flex; justify-content:space-between; align-items:baseline;
+           gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+.wid-cab h4 { font-family:'Syne',sans-serif; font-size:.95rem; }
+.wid-cab span { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--cyan);
+                letter-spacing:1.6px; text-transform:uppercase; }
+.wid svg { width:100%; height:auto; display:block; }
+.wid-ctrl { display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin:12px 0 4px; }
+.wid-ctrl label { display:flex; flex-direction:column; gap:4px; flex:1; min-width:170px;
+                  font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); }
+.wid input[type=range] { width:100%; accent-color:var(--cyan); }
+.wid-num { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.wid-num div { flex:1; min-width:104px; background:var(--card); border:1px solid var(--border);
+               border-radius:9px; padding:9px 12px; }
+.wid-num b { display:block; font-family:'IBM Plex Mono',monospace; font-size:1.05rem;
+             color:var(--text); }
+.wid-num span { font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--muted);
+                letter-spacing:1.1px; text-transform:uppercase; }
+.w-ver { margin-top:11px; padding:9px 13px; border-radius:8px; font-size:.83rem;
+         line-height:1.6; border-left:3px solid; }
+.w-ver b { color:var(--text); }
+.w-ver.alto { border-color:var(--orange); background:rgba(255,107,53,.07); color:#ffc4a8; }
+.w-ver.baixo { border-color:var(--green); background:rgba(0,255,136,.06); color:#9fffcb; }
+.dr-btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.dr-btn { font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 14px;
+          border-radius:20px; border:1px solid var(--border); background:transparent;
+          color:var(--muted); cursor:pointer; transition:.15s; }
+.dr-btn:hover { color:var(--text); border-color:var(--cyan); }
+.dr-btn.ativo { background:rgba(0,229,255,.13); border-color:var(--cyan); color:var(--cyan); }
+.dr-txt { margin-top:11px; font-size:.85rem; line-height:1.68; color:var(--muted);
+          padding-left:12px; border-left:2px solid var(--purple); }
+.dr-txt b { color:var(--text); }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div id="progress-bar"></div>
+
+<div id="topbar">
+  <span class="tb-label">⬡ MLOps · Aula 2 — Mudança de população</span>
+  <span class="tb-title" id="slide-title-bar"></span>
+  <span class="tb-counter" id="slide-counter"></span>
+</div>
+
+<div id="nav-prev">←</div>
+<div id="nav-next">→</div>
+<div id="dots"></div>
+
+<div id="slides">
+
+<div class="slide" data-title="Abertura">
+<div class="slide-inner slide-scroll">
+
+  <div class="badge">DATA DRIFT · RETREINO · PORTÃO DE PROMOÇÃO</div>
+  <h1 class="hero-title">Chegou fevereiro.<br>E a métrica <span style="color:var(--orange)">caiu</span>.</h1>
+  <p class="lead" style="max-width:780px;">A v1 está em produção desde a aula passada, com um baseline registrado. O lote de fevereiro entrou pela API e algo mudou. <strong style="color:var(--text)">"A métrica caiu" não diz qual é a causa</strong> — e a resposta certa nem sempre é retreinar.</p>
+  <div class="hero-q">📌 <strong>O que esta aula prova:</strong> quando a população muda, o seu conjunto de teste envelhece junto com ela. O portão de promoção vai <u>reprovar</u> o modelo novo — e o modelo novo é o certo. Entender por que é o assunto do dia.</div>
+  <div class="pill-row" style="margin-top:22px;">
+    <div class="pill">🧭 4 hipóteses, 1 evidência decide</div>
+    <div class="pill">📉 P(X) antes do rótulo</div>
+    <div class="pill">🔁 retreino com lineage completo</div>
+    <div class="pill">🚪 o portão que reprova o melhor</div>
+  </div>
+  <div class="callout co-warn" style="max-width:780px;">
+    <div class="ct">Antes de começar, confira o estado</div>
+    <p>Rode <code>curl 127.0.0.1:8000/saude</code>. Tem que dizer <code>"versao_modelo": "1"</code>. O <code>treinar.py</code> de hoje lê as features da tabela <code>predicoes</code>, então quem zerou o banco depois da Aula 1 precisa refazer o onboarding antes.</p>
+    <p>Baseline da v1, para comparar: <strong style="color:var(--text)">F1 0,6820 · accuracy 0,6431 · taxa positiva 0,6085</strong>.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="O chamado">
+<div class="slide-inner slide-scroll">
+
+  <span class="otag">o que chegou</span>
+  <h2 class="sec-title">O que a Marina escreveu</h2>
+
+  <div class="email">
+    <div class="em-cab">
+      <span><b>De:</b> Marina · RH Corporativo</span>
+      <span><b>Assunto:</b> lista de risco de fevereiro — algo está errado?</span>
+    </div>
+    <p>Pessoal, subi o arquivo de fevereiro no sistema e a lista de risco veio bem menor que a de janeiro. Em janeiro apareceram uns 600 nomes em alerta, agora deu quase metade disso.</p>
+    <p>O pessoal da unidade de Dourados começou a operar em janeiro e entrou nesse arquivo pela primeira vez — são uns 400 colaboradores em escala 12x36. Não sei se tem relação.</p>
+    <p>Só que eu <u>não posso</u> esperar para saber quem pediu demissão para descobrir se o modelo está funcionando. Tem como vocês me dizerem algo agora?</p>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:12px;">
+    <div class="ct">Duas informações e uma armadilha</div>
+    <p>A informação útil: <strong style="color:var(--text)">a lista encurtou</strong> — isso é medível hoje. A informação contextual: <strong style="color:var(--text)">entrou gente nova, com jornada diferente</strong>. A armadilha é tratar a segunda como conclusão: a Marina levantou uma hipótese, não diagnosticou nada. Sua função é testar.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">A frase mais importante do e-mail</div>
+    <p><i>"Não posso esperar para saber quem pediu demissão."</i> Em turnover o rótulo real leva <strong style="color:var(--text)">meses</strong>. Se você só descobre que tem problema quando o F1 chega, você descobre tarde. Metade desta aula é sobre o que dá para medir <u>sem</u> rótulo.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Teoria — os três tipos de drift">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">teoria · interativo</span>
+  <h2 class="sec-title">Drift é o mundo mudando <span style="color:var(--cyan)">depois</span> do treino</h2>
+  <p class="lead">Todo modelo supervisionado aprende uma relação entre entrada e saída a partir de um retrato do passado, e assume silenciosamente que o futuro se parece com esse retrato. <strong style="color:var(--text)">Drift é o nome da quebra dessa suposição.</strong> Nada no código falhou: o modelo continua respondendo, só que sobre um mundo que ele não conhece.</p>
+
+  <div class="card" style="margin-bottom:16px;">
+    <p style="color:var(--muted);font-size:.88rem;line-height:1.75;">A taxonomia toda nasce de uma decomposição só. A realidade que gerou os seus dados é a combinação de <b style="color:var(--text)">como as pessoas são</b> com <b style="color:var(--text)">o que o comportamento delas implica</b>:</p>
+    <p style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:1.15rem;color:var(--cyan);margin:14px 0 10px;">P(X, y) &nbsp;=&nbsp; P(X) &nbsp;·&nbsp; P(y|X)</p>
+    <p style="color:var(--muted);font-size:.84rem;line-height:1.7;"><b style="color:var(--text)">X</b> são as 15 features. <b style="color:var(--text)">y</b> é o alvo real. <b style="color:var(--text)">ŷ</b> é o que o modelo respondeu. A barra em <code style="color:var(--text)">P(y|X)</code> se lê <b>"dado"</b>: a probabilidade de pedir demissão <i>dado</i> o comportamento. É exatamente isso que o seu RandomForest tenta aproximar.</p>
+    <p style="color:var(--muted);font-size:.84rem;line-height:1.7;margin-top:8px;">São <b style="color:var(--text)">duas peças independentes</b>, e cada uma pode se mover sozinha. Daí os três tipos.</p>
+  </div>
+
+  <div class="wid">
+    <div class="wid-cab"><h4>Escolha o que muda no mundo</h4><span>arraste e compare</span></div>
+    <div class="dr-btns">
+      <button class="dr-btn ativo" data-cen="base">retrato do treino</button>
+      <button class="dr-btn" data-cen="covariate">covariate shift</button>
+      <button class="dr-btn" data-cen="concept">concept drift</button>
+      <button class="dr-btn" data-cen="label">label shift</button>
+    </div>
+    <svg id="dr-svg" viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="wid-num">
+      <div><span>P(X) mudou?</span><b id="dr-px">—</b></div>
+      <div><span>P(y|X) mudou?</span><b id="dr-pyx">—</b></div>
+      <div><span>taxa de saída</span><b id="dr-taxa">—</b></div>
+      <div><span>vê sem rótulo?</span><b id="dr-ver">—</b></div>
+    </div>
+    <p class="dr-txt" id="dr-txt"></p>
+  </div>
+
+  <div class="callout co-warn">
+    <div class="ct">Por que essa distinção não é acadêmica</div>
+    <p>Ela decide a <strong style="color:var(--text)">ação</strong>. Covariate shift em geral se resolve com retreino, porque a relação aprendida <u>ainda vale</u> — faltou só o modelo ter visto esse pedaço do mundo. Concept drift pode exigir features novas, alvo redefinido, ou aceitar que o problema mudou. Label shift muitas vezes se resolve só mexendo no limiar. <strong style="color:var(--text)">Tratar um como o outro é o desperdício mais caro de MLOps.</strong></p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Os três drifts em detalhe">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">teoria</span>
+  <h2 class="sec-title">Um por um, com exemplo <span style="color:var(--cyan)">de fábrica</span></h2>
+
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--green)">
+    <h3 class="slide-h3" style="color:var(--green);margin-bottom:8px;">Covariate shift — mudou quem, não o que significa</h3>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;"><b style="color:var(--text)">P(X) muda · P(y|X) fica igual.</b> É o nosso caso. Gente em 12x36 faz muito mais hora extra: a média de <code style="color:var(--text)">he_eventos</code> vai de 5 para 29. Mas a regra <i>"quem faz muita hora extra tem mais risco de sair"</i> não deixou de valer.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">Então por que o modelo piora?</b> Porque ele não aprende P(y|X) inteira — aprende uma aproximação boa <u>nas regiões onde tinha dados</u>. Seu RandomForest de profundidade 6 divide o espaço em folhas; as que cobrem "30 lançamentos de hora extra" foram ajustadas com pouquíssimos exemplos, porque 64% do treino tinha zero. A regra vale lá, o modelo nunca a estimou bem lá.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;">O termo é <b>covariate</b>, de <i>covariável</i> — as variáveis de entrada. Nada a ver com covariância.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;border-left:3px solid #ff4d6d">
+    <h3 class="slide-h3" style="color:#ff8fa3;margin-bottom:8px;">Concept drift — mudou o que significa</h3>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;"><b style="color:var(--text)">P(y|X) muda.</b> As mesmas colunas, com os mesmos valores, passam a implicar um desfecho diferente. Três sabores, em ordem crescente de dor de cabeça:</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">Externo.</b> Um frigorífico concorrente abre a 20 km. O perfil de quem sai é o mesmo, mas a propensão subiu para todos. O modelo continua ranqueando na ordem certa e <u>subestima o nível</u>.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">Semântico.</b> A empresa migra para banco de horas: hora extra deixa de ser imposição e passa a ser escolha bem paga. <code style="color:var(--text)">he_valor_total = 5000</code> era exaustão, virou engajamento. <u>O sinal inverteu de direção</u>, e o histograma pode estar idêntico.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">Autoinduzido — o pior.</b> A Marina usa a sua lista e monta um programa de retenção. Funciona. Agora quem tem perfil de alto risco <u>fica</u>, justamente por ter sido identificado. <strong style="color:var(--text)">O modelo passa a errar por ter acertado.</strong> Chama-se <i>feedback loop</i>, e é por isso que todo modelo que dispara uma ação precisa registrar quem recebeu a intervenção — senão você não consegue medir o próprio efeito.</p>
+  </div>
+
+  <div class="card" style="border-left:3px solid #ffd166">
+    <h3 class="slide-h3" style="color:#ffd166;margin-bottom:8px;">Label shift — mudou a proporção</h3>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;"><b style="color:var(--text)">P(y) muda · P(X|y) fica igual.</b> Repare que a condicional inverteu: <i>dado que a pessoa saiu, como ela era?</i> Isso continua igual. O que mudou é <b>quantas</b> saem.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;">O efeito é <b>descalibração</b>, não erro: o modelo continua ordenando bem e passa a prever positivo demais, porque aprendeu num mundo onde metade saía. <strong style="color:var(--text)">É parte do que você vai ver hoje</strong> — a taxa real de saída em fevereiro é 44%, não os 51,4% do treino.</p>
+    <p style="color:var(--muted);font-size:.85rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">A sutileza que confunde:</b> label shift também aparece como mudança em P(X), porque P(X) = Σ P(X|y)·P(y). Se menos gente sai, a mistura de perfis muda — você vê drift nas features sem ninguém ter mudado de comportamento.</p>
+  </div>
+
+  <div class="callout co-err">
+    <div class="ct">Na prática eles vêm misturados</div>
+    <p>Fevereiro tem covariate shift (Dourados) <strong style="color:var(--text)">e</strong> label shift (51% → 44%) juntos, e não há como separar as contribuições de forma limpa. A taxonomia não serve para cravar um rótulo exato — serve para <strong style="color:var(--text)">saber quais perguntas fazer</strong> e não tratar um problema de calibração como se fosse de treino.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="As quatro hipóteses">
+<div class="slide-inner slide-scroll">
+
+  <span class="ptag">método</span>
+  <h2 class="sec-title">"A métrica caiu" não diz <span style="color:var(--purple)">por quê</span></h2>
+  <p class="lead">E nem tudo que parece drift é drift. Quatro causas produzem quedas parecidas, pedem quatro ações diferentes, e <strong style="color:var(--text)">três delas não são retreino</strong>. Sua tarefa é usar a evidência para eliminar três.</p>
+
+  <div class="hip">
+    <div class="hip-item">
+      <div class="hip-n">A</div>
+      <div><h4>Mudou a população</h4>
+      <p>Entrou ou saiu gente diferente. As features mudam de forma <b>e</b> as contagens de eventos acompanham. Fatores irregulares.</p>
+      <p class="hip-acao">→ retreinar, incorporando o novo</p></div>
+    </div>
+    <div class="hip-item">
+      <div class="hip-n">B</div>
+      <div><h4>Mudou a unidade do dado</h4>
+      <p>As mesmas pessoas, os mesmos eventos, valores em outra escala. Fatores <b>redondos</b> (60, 100, 1/60) e percentual de zeros idêntico.</p>
+      <p class="hip-acao">→ corrigir a ingestão. Nenhuma versão nova</p></div>
+    </div>
+    <div class="hip-item">
+      <div class="hip-n">C</div>
+      <div><h4>Bug no pipeline</h4>
+      <p>Coluna nula, join duplicando linhas, agregação errada. Costuma aparecer em uma feature só, ou em valores impossíveis.</p>
+      <p class="hip-acao">→ consertar o código. Nenhuma versão nova</p></div>
+    </div>
+    <div class="hip-item">
+      <div class="hip-n">D</div>
+      <div><h4>Versão errada publicada</h4>
+      <p>O alias aponta para o modelo errado. A distribuição das features está intacta; só a saída mudou.</p>
+      <p class="hip-acao">→ mover o alias de volta. Uma linha</p></div>
+    </div>
+  </div>
+
+  <div class="callout co-ok">
+    <div class="ct">A regra da disciplina</div>
+    <p><strong style="color:var(--text)">Retreinar por reflexo acerta às vezes e não ensina nunca.</strong> Um grupo que descarta o retreino com um bom argumento vale mais que um grupo que retreinou e ficou com número melhor. Hoje a resposta <i>é</i> retreinar — mas só depois de eliminar B, C e D com evidência.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Preparação — ajustes nos arquivos da Aula 1">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-b">Bloco B · agir</span>
+  <div class="step-marker">
+    <div class="step-num b">0</div>
+    <div class="step-meta">
+      <span class="step-file">Antes de escrever o retreino</span>
+      <span class="step-obj">Cinco ajustes no que você já tem. Dois vêm prontos.</span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-bottom:14px;">Faça isto <strong style="color:var(--text)">antes de tocar em qualquer coisa</strong>. O front desta aula, o retreino e o portão precisam de coisas que a Aula 1 não tinha, e alguns desses ajustes dependem uns dos outros — o front novo lê um campo que o backend só passa a devolver depois da edição no <code class="inline">banco.py</code>.</p>
+
+  <div class="callout co-info" style="margin-bottom:16px;">
+    <div class="ct">Onde estamos e por que agora</div>
+    <p>Você acabou de ver a teoria e ainda não rodou nada. Os cinco ajustes levam uns cinco minutos e destravam o resto da aula inteira. <strong style="color:var(--text)">O porquê de cada um aparece adiante</strong>, no slide em que ele é usado — a tabela nova ganha nome e função no slide <i>Os dois juízes</i>, e o <code>DISTINCT ON</code> no slide <i>O mesmo lote, o modelo novo</i>. Aqui o objetivo é só deixar o ambiente de pé.</p>
+  </div>
+
+  <div class="callout co-warn" style="margin-bottom:16px;">
+    <div class="ct">Antes disso, confirme o estado da Aula 1</div>
+    <p><code>curl 127.0.0.1:8000/saude</code> tem que responder <code>"versao_modelo": "1"</code>, e <code>psql turnover -U postgres -c "SELECT lote, count(*) FROM predicoes GROUP BY lote;"</code> tem que mostrar o <code>lote_aula1_jan</code>. Quem zerou o banco depois da Aula 1 precisa refazer o <code>preparar_dados.py</code> e o <code>onboard_v1.py</code> agora — o <code>treinar.py</code> lê as features da tabela <code>predicoes</code>.</p>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px;">
+    <table class="tbl">
+      <thead><tr><th>Arquivo</th><th>O ajuste</th><th>Se não fizer</th></tr></thead>
+      <tbody>
+        <tr class="sep-c"><td><code>sql/02_validacao_atual.sql</code><br><span style="font-size:.72rem;color:var(--green)">vem pronto · só rodar</span></td>
+            <td>cria a tabela do conjunto de aceitação</td>
+            <td><code>relation "validacao_atual" does not exist</code></td></tr>
+        <tr class="sep-a"><td><code>config.py</code><br><span style="font-size:.72rem;color:#c4b5fd">você edita</span></td>
+            <td><code>TABELA_VALIDACAO_ATUAL</code> e <code>GANHO_MINIMO</code></td>
+            <td><code>AttributeError</code> no <code>treinar.py</code></td></tr>
+        <tr class="sep-a"><td><code>app/banco.py</code><br><span style="font-size:.72rem;color:#c4b5fd">você edita</span></td>
+            <td>três coisas: <code>acumular_validacao_atual()</code>, <code>resumo_por_lote()</code> e <code>existe_tabela()</code>; mais o <code>DISTINCT ON</code> no <code>carregar_lote()</code></td>
+            <td>o retreino quebra, e reenviar um lote passa a duplicar as linhas</td></tr>
+        <tr class="sep-a"><td><code>monitorar.py</code><br><span style="font-size:.72rem;color:#c4b5fd">você edita</span></td>
+            <td><code>--referencia</code> passa a aceitar o nome de um <b>lote</b>, não só de uma tabela</td>
+            <td>o último passo da aula não roda</td></tr>
+        <tr><td><code>app/static/</code><br><span style="font-size:.72rem;color:var(--green)">vem pronto · substituir</span></td>
+            <td>filtro por lote, resumo que acompanha o filtro e tabela de comparação</td>
+            <td>você não consegue comparar janeiro com fevereiro na tela</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="slide-h3">1 · Rodar o DDL</h3>
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">psql turnover -U postgres -f sql/02_validacao_atual.sql
+psql turnover -U postgres -c &quot;\\dt&quot;          # tem que listar 4 tabelas agora</div>
+</div>
+
+  <div class="callout co-warn" style="margin-bottom:14px;">
+    <div class="ct">Se o seu banco não se chama turnover, ou não está na sua máquina</div>
+    <p>Na Aula 1 cada um escolheu onde hospedar o Postgres, então metade da turma tem um comando diferente do que está aí. O nome certo está no seu <code>.env</code>, em <code>PG_DB_APP</code>. Fora de <code>localhost</code>, acrescente o <code>-h</code>:</p>
+  </div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">se o banco estiver em outro lugar</span>
+    <div class="code-right"><span class="lbadge">ajuste</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">psql -h SEU_HOST -U SEU_USUARIO NOME_DO_BANCO -f sql/02_validacao_atual.sql</div>
+</div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">sql/02_validacao_atual.sql</span>
+    <div class="code-right"><span class="lbadge">já está lá</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="c">-- =====================================================================</span>
+<span class="c">-- AULA 2 -- a validacao da populacao nova</span>
+<span class="c">--</span>
+<span class="c">--     psql turnover -U postgres -f sql/02_validacao_atual.sql</span>
+<span class="c">--</span>
+<span class="c">-- Na Aula 1 existia UM conjunto de teste. Agora sao DOIS, com papeis</span>
+<span class="c">-- diferentes -- e o segundo nao substitui o primeiro:</span>
+<span class="c">--</span>
+<span class="c">--   validacao_congelada  GUARDA DE REGRESSAO</span>
+<span class="c">--                        Nunca muda. Nunca e apagada. Nunca cresce.</span>
+<span class="c">--                        Responde: &quot;eu quebrei o que ja funcionava?&quot;</span>
+<span class="c">--</span>
+<span class="c">--   validacao_atual      CONJUNTO DE ACEITACAO  (esta tabela)</span>
+<span class="c">--                        Representa a populacao que o modelo atende HOJE.</span>
+<span class="c">--                        ACUMULA: cada lote rotulado e anexado, nunca</span>
+<span class="c">--                        substitui o anterior.</span>
+<span class="c">--                        Responde: &quot;serve para o mundo de agora?&quot;</span>
+<span class="c">--</span>
+<span class="c">-- Quando atualizar esta tabela:</span>
+<span class="c">--   gatilho    evidencia de mudanca de populacao no relatorio de drift.</span>
+<span class="c">--              Nao e calendario, e NAO e &quot;quando o resultado nao agrada&quot;.</span>
+<span class="c">--   como       INSERT do lote rotulado. A mistura se corrige sozinha</span>
+<span class="c">--              conforme mais meses entram.</span>
+<span class="c">--   registro   a promocao grava em que conjunto foi decidida (validado_em).</span>
+<span class="c">-- =====================================================================</span>
+
+CREATE TABLE IF NOT EXISTS validacao_atual (
+    id_pessoa                    TEXT PRIMARY KEY,
+    abs_eventos                  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    abs_qtd_total                DOUBLE PRECISION NOT NULL DEFAULT 0,
+    horas_previstas_total        DOUBLE PRECISION NOT NULL DEFAULT 0,
+    acidentes_eventos            DOUBLE PRECISION NOT NULL DEFAULT 0,
+    acidentes_com_afastamento    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    acidentes_dias_perdidos      DOUBLE PRECISION NOT NULL DEFAULT 0,
+    he_eventos                   DOUBLE PRECISION NOT NULL DEFAULT 0,
+    he_referencia_total          DOUBLE PRECISION NOT NULL DEFAULT 0,
+    he_valor_total               DOUBLE PRECISION NOT NULL DEFAULT 0,
+    hi_eventos                   DOUBLE PRECISION NOT NULL DEFAULT 0,
+    hi_minutos_irregulares       DOUBLE PRECISION NOT NULL DEFAULT 0,
+    hi_minutos_extras            DOUBLE PRECISION NOT NULL DEFAULT 0,
+    mov_sal_eventos              DOUBLE PRECISION NOT NULL DEFAULT 0,
+    mov_sal_valor_total          DOUBLE PRECISION NOT NULL DEFAULT 0,
+    mov_sal_perc_medio           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pediu_para_sair              SMALLINT NOT NULL,
+    origem                       TEXT     NOT NULL   -- de qual lote saiu
+);
+
+<span class="c">-- Para recomecar:  DROP TABLE IF EXISTS validacao_atual;</span></div>
+</div>
+
+  <h3 class="slide-h3">2 · config.py — as duas constantes novas</h3>
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">acrescente ao config.py</span>
+    <div class="code-right"><span class="lbadge">você edita</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="c"># DOIS conjuntos de teste, com papeis diferentes -- um nao substitui o outro:</span>
+<span class="c">#</span>
+<span class="c">#   validacao_congelada  GUARDA DE REGRESSAO. Nunca muda, nunca e apagada.</span>
+<span class="c">#                        Responde &quot;eu quebrei o que ja funcionava?&quot;</span>
+<span class="c">#   validacao_atual      CONJUNTO DE ACEITACAO. Representa a populacao que o</span>
+<span class="c">#                        modelo atende HOJE. Cresce a cada lote rotulado.</span>
+<span class="c">#                        Responde &quot;serve para o mundo de agora?&quot;</span>
+TABELA_VALIDACAO_ATUAL = <span class="s">&quot;validacao_atual&quot;</span>
+
+<span class="c"># Ganho minimo de F1 para o candidato substituir o campeao.</span>
+<span class="c"># Abaixo disso a troca nao paga o risco de mexer em producao.</span>
+GANHO_MINIMO = <span class="o">0.005</span></div>
+</div>
+
+  <div class="callout co-info" style="margin-bottom:16px;">
+    <div class="ct">Por que o GANHO_MINIMO mora no config e não no portão</div>
+    <p>Porque é uma <strong style="color:var(--text)">decisão de negócio</strong>, igual ao <code>LIMIAR_DECISAO</code>: quanto de melhora justifica o risco de trocar produção? Quem responde não é quem escreveu o <code>promover.py</code>. E o valor precisa estar num lugar só, senão dois portões diferentes aprovam coisas diferentes.</p>
+  </div>
+
+  <h3 class="slide-h3">3 · app/banco.py — três funções novas e uma correção</h3>
+  <p class="lead" style="margin-bottom:12px;">As duas primeiras são pedidas pelo retreino. A terceira e a correção existem por um motivo que vale entender, porque é um erro que dá número errado em silêncio.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">acrescente ao app/banco.py</span>
+    <div class="code-right"><span class="lbadge">você edita</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="k">def</span> <span class="h">existe_tabela</span>(nome):
+    <span class="s">&quot;&quot;&quot;O monitorar.py usa para aceitar tabela OU nome de lote na referencia.&quot;&quot;&quot;</span>
+    <span class="k">with</span> conectar() <span class="k">as</span> con, con.cursor() <span class="k">as</span> cur:
+        cur.execute(<span class="s">&quot;SELECT to_regclass(%s) IS NOT NULL&quot;</span>, (nome,))
+        <span class="k">return</span> cur.fetchone()[<span class="o">0</span>]
+
+
+<span class="k">def</span> <span class="h">acumular_validacao_atual</span>(df):
+    <span class="s">&quot;&quot;&quot;ANEXA um lote rotulado ao conjunto de aceitacao.
+
+    Acumula de proposito, nao substitui. Se cada mes apagasse o anterior, o
+    juiz seria sempre 100% da unidade mais recente -- e superestimaria o ganho
+    de um modelo especializado nela.
+
+    ON CONFLICT DO NOTHING: rodar o treino duas vezes nao duplica ninguem.
+    &quot;&quot;&quot;</span>
+    colunas = ([config.COLUNA_ID] + config.FEATURES
+               + [config.COLUNA_ALVO, <span class="s">&quot;origem&quot;</span>])
+    linhas = [tuple(linha) <span class="k">for</span> linha <span class="k">in</span> df[colunas].itertuples(index=<span class="k">False</span>)]
+    <span class="k">with</span> conectar() <span class="k">as</span> con, con.cursor() <span class="k">as</span> cur:
+        execute_values(cur,
+            f&quot;INSERT INTO {config.TABELA_VALIDACAO_ATUAL} &quot;
+            f&quot;({<span class="s">&#x27;, &#x27;</span>.join(colunas)}) VALUES %s &quot;
+            f&quot;ON CONFLICT ({config.COLUNA_ID}) DO NOTHING&quot;, linhas)
+        cur.execute(f&quot;SELECT count(*) FROM {config.TABELA_VALIDACAO_ATUAL}&quot;)
+        total = cur.fetchone()[<span class="o">0</span>]
+    <span class="k">return</span> <span class="o">len</span>(linhas), total</div>
+</div>
+
+  <div class="callout co-err" style="margin-bottom:16px;">
+    <div class="ct">A correção no carregar_lote() — e o bug que ela conserta</div>
+    <p>No fim da aula você vai <strong style="color:var(--text)">reenviar o mesmo lote de fevereiro</strong> com a v2 em produção, para medir a correção. Só que a tabela <code>predicoes</code> é um log: ela <u>insere</u>, não substitui. Sem o ajuste, o lote passa a ter 2.800 linhas — as 1.400 da v1 mais as 1.400 da v2 — e todas as métricas saem erradas.</p>
+    <p>A troca de uma linha na consulta resolve, e mantém o histórico: as duas pontuações continuam na tabela, e o que se <u>lê</u> é sempre a mais recente de cada pessoa.</p>
+  </div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">troque a consulta do carregar_lote()</span>
+    <div class="code-right"><span class="lbadge">você edita</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">        <span class="c"># ANTES: pegava tudo, e reenviar o lote duplicava as linhas</span>
+        <span class="c">#   &quot;SELECT id_pessoa, versao_modelo, probabilidade, classe, features &quot;</span>
+        <span class="c">#   &quot;FROM predicoes WHERE lote = %s ORDER BY id&quot;</span>
+
+        <span class="c"># DEPOIS: vale a predicao mais recente de cada pessoa</span>
+        cur.execute(
+            <span class="s">&quot;SELECT DISTINCT ON (id_pessoa) &quot;</span>
+            <span class="s">&quot;       id_pessoa, versao_modelo, probabilidade, classe, features &quot;</span>
+            <span class="s">&quot;FROM predicoes WHERE lote = %s &quot;</span>
+            <span class="s">&quot;ORDER BY id_pessoa, id DESC&quot;</span>, (nome,))</div>
+</div>
+
+  <h3 class="slide-h3">4 · monitorar.py — referência pode ser um lote</h3>
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">troque no monitorar.py</span>
+    <div class="code-right"><span class="lbadge">você edita</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">    <span class="c"># A referencia pode ser uma tabela (treino_v1, validacao_atual) ou um lote</span>
+    <span class="c"># que a API ja pontuou (lote_aula2_fev). O segundo caso e o que permite</span>
+    <span class="c"># comparar &quot;este mes contra o mes passado&quot; em vez de contra o treino.</span>
+    <span class="k">if</span> banco.existe_tabela(args.referencia):
+        referencia = banco.carregar_conjunto(args.referencia)
+    <span class="k">else</span>:
+        referencia = banco.carregar_lote(args.referencia)
+        <span class="k">if</span> referencia.empty:
+            <span class="k">raise</span> <span class="o">SystemExit</span>(
+                f&quot;&#x27;{args.referencia}&#x27; nao e tabela nem lote pontuado.&quot;)</div>
+</div>
+
+  <div class="callout co-warn">
+    <div class="ct">Um detalhe que vai morder no promover.py também</div>
+    <p>Quando você escrever o portão, <strong style="color:var(--text)">não esqueça o <code>mlflow.set_experiment()</code></strong>. Script novo, erro velho: sem ele o run de promoção cai no experimento <code>Default</code>, fora da gaveta onde vive o histórico do modelo, e não aparece no <b>Compare</b>. O sintoma é pior que um erro — <u>funciona</u>, e some da tela.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="O front agora compara">
+<div class="slide-inner slide-scroll">
+
+  <span class="ptag">o que já está pronto</span>
+  <h2 class="sec-title">Filtrar por lote e ver os <span style="color:var(--purple)">números mudarem</span></h2>
+  <p class="lead" style="margin-bottom:14px;">Na Aula 1 o front listava colaboradores e nada mais. Comparar janeiro com fevereiro exigia sair para o terminal. A versão desta aula resolve isso — e você vai usar esse filtro já no próximo slide.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">faça agora</span>
+    <div class="code-right"><span class="lbadge">substituir</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="c"># substitua os dois arquivos pelos do kit desta aula</span>
+cp kit_aula2/app/static/index.html  app/static/index.html
+cp kit_aula2/app/static/estilo.css  app/static/estilo.css</div>
+</div>
+
+  <div class="callout co-ok" style="margin-bottom:16px;">
+    <div class="ct">Não precisa reiniciar o uvicorn</div>
+    <p>O front é HTML e CSS estáticos, servidos pelo <code>app.mount()</code> direto do disco. <strong style="color:var(--text)">Um F5 na página basta.</strong> Restart só é necessário quando você mexe em código Python — como no <code>banco.py</code> e no <code>main.py</code> do passo anterior.</p>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:16px;">
+    <div class="ct">A ordem importa aqui</div>
+    <p>O <code>index.html</code> novo lê o campo <code>resumo</code> da resposta de <code>/colaboradores</code>, e esse campo só existe depois do <code>resumo_por_lote()</code> no <code>banco.py</code> e da alteração no <code>main.py</code>. <strong style="color:var(--text)">Se você trocar só a <code>static/</code>, a tabela de comparação aparece vazia</strong> — e o sintoma não diz o motivo.</p>
+  </div>
+
+  <div class="g3" style="margin-bottom:16px;">
+    <div class="card"><strong style="color:var(--cyan);font-size:.86rem">Filtro por lote</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">um <code>select</code> com os lotes que existem no banco</p></div>
+    <div class="card"><strong style="color:var(--green);font-size:.86rem">Resumo que acompanha</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">taxa positiva e probabilidade média do lote escolhido, no topo da tela</p></div>
+    <div class="card"><strong style="color:var(--orange);font-size:.86rem">Tabela de comparação</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">uma linha por lote, com a diferença calculada embaixo</p></div>
+  </div>
+
+  <div class="bloco">
+  <div class="barra"><span class="arq">aba Colaboradores · com os dois lotes pontuados pela v1</span>
+    <div class="code-right"><span class="lbadge">saída</span></div></div>
+  <div class="code" style="display:block;max-height:none">lote              pessoas  versao  taxa positiva  prob. media  alerta  atencao   ok
+lote_aula1_jan       1400      v1         <span class="s">0.6021</span>       0.5122     610      233  557
+lote_aula2_fev       1400      v1         <span class="o">0.3593</span>       0.4538     300      203  897
+
+<span class="c">lote_aula2_fev contra lote_aula1_jan: taxa positiva 24,3 pontos abaixo
+(0.6021 -> 0.3593), -310 em alerta.</span></div>
+</div>
+
+  <div class="callout co-err" style="margin:14px 0 12px;">
+    <div class="ct">Por que os números vêm do banco e não do javascript</div>
+    <p>A lista de cards é <strong style="color:var(--text)">truncada</strong> para não pesar a tela — hoje em 3.000. E qualquer conta feita sobre uma lista truncada mente: como a lista vem ordenada por risco, contar sobre ela dava taxa positiva de <u>0,71</u> em vez de 0,60, porque as pessoas de menor risco ficavam de fora do corte.</p>
+    <p>Por isso existe o <code>resumo_por_lote()</code>: um <code>GROUP BY</code> no Postgres, sobre a tabela inteira. <strong style="color:var(--text)">São as mesmas contas que o <code>monitorar.py</code> faz no terminal</strong> — a tela é só um lugar mais rápido de olhar.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">O que a tela não substitui</div>
+    <p>A tabela do front mostra <b>P(ŷ)</b> — o que o modelo respondeu. Ela não mostra KS, razão de média nem percentual de zeros, que é <b>P(X)</b>, nem métrica real, que precisa de rótulo. <strong style="color:var(--text)">A tela serve para notar que algo mudou; o diagnóstico continua no relatório do <code>monitorar.py</code>.</strong></p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 1 — Olhe antes de saber">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-a">Bloco A · observar</span>
+  <div class="step-marker">
+    <div class="step-num ">1</div>
+    <div class="step-meta">
+      <span class="step-file">Subir o lote de fevereiro</span>
+      <span class="step-obj">Antes do gabarito. O que já dá para ver?</span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-bottom:14px;">O professor mandou o <code class="inline">lote_aula2_fev.csv</code>. Vá na aba <strong style="color:var(--text)">Enviar lote</strong> e suba. Depois vá para <strong style="color:var(--text)">Colaboradores</strong> e use o <strong style="color:var(--text)">filtro por lote</strong>: troque entre janeiro e fevereiro e veja os números do topo mudarem. A tabela de comparação embaixo já calcula a diferença.</p>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <table class="tbl">
+      <thead><tr><th>Sem nenhum rótulo, você já consegue ver</th><th>Janeiro</th><th>Fevereiro</th></tr></thead>
+      <tbody>
+        <tr><td><b>Taxa de predição positiva</b></td><td>0,6021</td><td><strong style="color:var(--orange)">0,3593</strong></td></tr>
+        <tr><td>Probabilidade média</td><td>0,5122</td><td><strong style="color:var(--orange)">0,4538</strong></td></tr>
+        <tr><td>Cards em alerta</td><td>610</td><td><strong style="color:var(--orange)">≈300</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:12px;">
+    <div class="ct">A taxa positiva caiu 40% e ninguém precisou saber quem pediu demissão</div>
+    <p>Esse é o ponto que sustenta a aula. O modelo está marcando <strong style="color:var(--text)">muito menos gente</strong> — calculável no minuto em que o arquivo chega. O F1 só vai existir quando o RH souber quem saiu, e isso leva meses.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">O que essa queda ainda NÃO diz</div>
+    <p>Se o modelo ficou ruim, ou se a população realmente tem menos risco. Uma taxa positiva menor é o comportamento <u>correto</u> se as pessoas novas de fato saem menos — e, adiantando: <strong style="color:var(--text)">parte da queda vai se revelar correta</strong>. A taxa real de saída dessa população é 44%, não 51%. Você observou um sinal, não achou uma causa.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Teoria — label lag">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">teoria · interativo</span>
+  <h2 class="sec-title">Por que você <span style="color:var(--orange)">não pode esperar</span> o rótulo</h2>
+  <p class="lead"><strong style="color:var(--text)">Label lag</strong> é o intervalo entre a predição e o momento em que você descobre se ela estava certa. Toda métrica de qualidade compara ŷ com y — sem y, não existe F1, accuracy, recall, matriz de confusão. Nada. Então o lag não atrasa só o relatório: ele define <strong style="color:var(--text)">quanto tempo você fica cego</strong> depois de qualquer mudança.</p>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <table class="tbl">
+      <thead><tr><th>Domínio</th><th>Label lag típico</th></tr></thead>
+      <tbody>
+        <tr><td>recomendação</td><td>segundos — o clique é imediato</td></tr>
+        <tr><td>fraude de cartão</td><td>horas a dias</td></tr>
+        <tr><td>crédito</td><td>meses — a inadimplência precisa vencer</td></tr>
+        <tr class="sep-c"><td><b>turnover</b></td><td><strong style="color:var(--orange)">um a dois trimestres</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:16px;">
+    <div class="ct">A conta no seu caso</div>
+    <p>O modelo começa a errar em março. A janela de observação é de uns três meses, então o gabarito de março fecha em junho; some consolidação da folha e extração e você descobre em <strong style="color:var(--text)">julho</strong>. Quatro meses de decisões de retenção tomadas sobre uma lista errada — com a Marina agindo em cima delas o tempo todo.</p>
+  </div>
+
+  <h3 class="slide-h3">E o rótulo não chega de uma vez — chega enviesado</h3>
+  <p class="lead" style="margin-bottom:12px;">Arraste o mês e veja o problema: quem <b>saiu</b> já tem rótulo fechado. Quem <b>ficou</b> só tem rótulo quando a janela inteira vence — até lá, ninguém sabe se a pessoa vai sair mês que vem.</p>
+
+  <div class="wid">
+    <div class="wid-cab"><h4>300 pessoas pontuadas no mês 0</h4><span>censura à direita</span></div>
+    <svg id="lag-svg" viewBox="0 0 700 150" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="wid-ctrl">
+      <label>hoje é o mês <input type="range" id="lag-mes" min="0" max="6" value="2" step="1"></label>
+    </div>
+    <div class="wid-num">
+      <div><span>rótulos fechados</span><b id="lag-fech">—</b></div>
+      <div><span>taxa de saída observada</span><b id="lag-taxa">—</b></div>
+      <div><span>F1 medido agora</span><b id="lag-f1">—</b></div>
+      <div><span>F1 real (mês 6)</span><b id="lag-f1r">—</b></div>
+    </div>
+    <div class="w-ver" id="lag-ver"></div>
+  </div>
+
+  <div class="callout co-warn" style="margin-bottom:12px;">
+    <div class="ct">O nome disso é censura à direita</div>
+    <p>É vocabulário de análise de sobrevivência. A regra prática: <strong style="color:var(--text)">defina uma janela fixa e só considere fechado quem completou a janela inteira</strong>. Medir antes te dá uma amostra quase só de positivos — e a conclusão de que o modelo tem recall ótimo, quando você só não esperou o suficiente.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Como se convive com isso</div>
+    <p><b>Monitorar o que não espera</b> — P(X) e P(ŷ): sinalizam sem provar, mas chegam hoje. <b>Alvo substituto</b>: se "pediu demissão" leva um trimestre, talvez "abriu processo no sistema" chegue em semanas e seja correlacionado — você troca precisão semântica por velocidade. <b>Calibração</b>: das pessoas a quem o modelo deu 70%, quantas saíram? Detecta descalibração antes do F1 completo existir. <b>Segmentar</b>: o drift quase sempre aparece primeiro num pedaço da operação.</p>
+    <p>E o efeito colateral que vale registrar: <strong style="color:var(--text)">se o rótulo leva três meses, retreinar mais de uma vez por trimestre não faz sentido</strong> — você estaria treinando em cima de dado sem rótulo confiável. O label lag limita o monitoramento e a frequência com que você pode responder a ele.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 2 — monitorar.py, sem gabarito">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-a">Bloco A · observar</span>
+  <div class="step-marker">
+    <div class="step-num ">2</div>
+    <div class="step-meta">
+      <span class="step-file">monitorar.py --lote lote_aula2_fev</span>
+      <span class="step-obj">Medir P(X). Primeiro dos DOIS momentos no tempo.</span>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">python monitorar.py --lote lote_aula2_fev</div>
+</div>
+
+  <div class="callout co-info" style="margin-bottom:14px;">
+    <div class="ct">Por que este run e o do próximo passo não são trabalho repetido</div>
+    <p>A aula comprime três meses em quinze minutos, e isso pode confundir. <strong style="color:var(--text)">São dois momentos distintos no tempo:</strong></p>
+    <p><b>Este run é o dia 1 de março</b> — o arquivo de fevereiro chegou, você tem as features e as predições, e não tem rótulo nenhum. É o que você consegue dizer para a Marina <u>hoje</u>.</p>
+    <p><b>O run do Passo 3 é o dia 1 de junho</b> — o RH fechou a janela e liberou quem saiu. Os dois ficam no MLflow, com data e com <code>tipo=monitoramento</code>. É assim que o histórico conta a verdade: primeiro o que se suspeitava, depois o que se confirmou.</p>
+  </div>
+
+  <p class="lead" style="margin-bottom:12px;">O script é o mesmo da Aula 1, sem uma linha de mudança. O que muda é o que ele encontra:</p>
+
+  <div class="bloco">
+  <div class="barra"><span class="arq">relatório de drift · fevereiro contra treino_v1</span>
+    <div class="code-right"><span class="lbadge">saída</span></div></div>
+  <div class="code" style="display:block;max-height:none">                  feature    ks  media_ref  media_atual  razao_media  perc_zeros_ref  perc_zeros_atual
+               he_eventos 0.564      5.095       29.347        <span class="o">5.760</span>            <span class="s">64.1</span>              <span class="s">16.4</span>
+      he_referencia_total 0.504     22.269      250.374       <span class="o">11.243</span>            <span class="s">64.3</span>              <span class="s">16.4</span>
+           he_valor_total 0.497    340.946     4025.853       <span class="o">11.808</span>            <span class="s">64.1</span>              <span class="s">16.4</span>
+       mov_sal_perc_medio 0.425      0.036        0.016        <span class="o">0.442</span>            <span class="s">39.8</span>              <span class="s">20.6</span>
+   hi_minutos_irregulares 0.275   2250.496      837.012        <span class="o">0.372</span>            <span class="s">48.3</span>              <span class="s">20.9</span>
+          mov_sal_eventos 0.225      2.172        0.937        <span class="o">0.432</span>            <span class="s">39.6</span>              <span class="s">36.9</span>
+      mov_sal_valor_total 0.213    179.566       71.051        <span class="o">0.396</span>            <span class="s">39.8</span>              <span class="s">20.6</span>
+               hi_eventos 0.162      8.995        7.047        0.783            48.3              32.1
+        acidentes_eventos 0.057      0.105        0.180        1.710            91.5              85.8
+        hi_minutos_extras 0.000      0.000        0.000          NaN           <span class="c">100.0</span>             <span class="c">100.0</span>
+
+resumo
+  features_em_drift        <span class="o">7</span>
+  maior_ks                 <span class="o">0.564</span>
+  taxa_predicao_positiva   <span class="o">0.3593</span>
+  features_mortas          1</div>
+</div>
+
+  <div class="callout co-warn">
+    <div class="ct">Sete features em drift. Agora leia as colunas, não o número.</div>
+    <p>O <code>features_em_drift = 7</code> é a métrica que acende a luz. As três colunas da direita são a <strong style="color:var(--text)">evidência</strong> que escolhe entre as quatro hipóteses — e é por isso que o relatório inteiro vira artefato no MLflow, não só o número.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Teoria — como ler o relatório">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">teoria · interativo</span>
+  <h2 class="sec-title">Três colunas, três perguntas <span style="color:var(--cyan)">diferentes</span></h2>
+
+  <div class="card" style="margin-bottom:14px;">
+    <h3 class="slide-h3" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:.95rem;">ks — a forma mudou?</h3>
+    <p style="color:var(--muted);font-size:.86rem;line-height:1.7;">A estatística de <b>Kolmogorov–Smirnov</b> de duas amostras é a <u>maior distância vertical</u> entre as duas funções de distribuição acumulada. Vai de 0 (idênticas) a 1 (sem sobreposição). Não olha média nem variância — olha a forma inteira, ponto a ponto. Mexa nos controles e veja a distância sendo medida:</p>
+  </div>
+
+  <div class="wid">
+    <div class="wid-cab"><h4>A distância que o KS mede</h4><span>linha verde: referência · laranja: lote atual</span></div>
+    <svg id="ks-svg" viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="wid-ctrl">
+      <label>deslocamento da média <input type="range" id="ks-desl" min="-30" max="40" value="0" step="1"></label>
+      <label>mudança de dispersão <input type="range" id="ks-esc" min="0.4" max="2.5" value="1" step="0.05"></label>
+    </div>
+    <div class="wid-num">
+      <div><span>ks</span><b id="ks-num">—</b></div>
+      <div><span>razao_media</span><b id="ks-razao">—</b></div>
+    </div>
+    <div class="w-ver" id="ks-ver"></div>
+  </div>
+
+  <div class="callout co-warn" style="margin-bottom:14px;">
+    <div class="ct">Usamos a estatística, não o p-valor</div>
+    <p>Com 1.400 linhas contra 19.200, <strong style="color:var(--text)">qualquer diferença minúscula dá p-valor significativo</strong> — o teste detecta o irrelevante. O corte de <code>0,2</code> é convenção prática, não teorema: acima disso a diferença costuma ser grande o suficiente para mexer na predição. Experimente no widget: dá para ter p-valor ínfimo com KS de 0,05.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;">
+    <h3 class="slide-h3" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:.95rem;">razao_media — a escala mudou, e por quanto?</h3>
+    <p style="color:var(--muted);font-size:.86rem;line-height:1.7;">Média atual dividida pela de referência. O KS diz <i>que</i> mudou; a razão diz <i>o tamanho e a direção</i>. E, principalmente, diz <b style="color:var(--text)">se o fator parece humano ou parece máquina</b> — a pista que separa esta aula da próxima.</p>
+    <p style="color:var(--muted);font-size:.86rem;line-height:1.7;margin-top:8px;"><b style="color:var(--text)">Cuidado:</b> razão de média sobre coluna quase toda zerada é ruído. <code style="color:var(--text)">abs_qtd_total</code> aparece com razão 0,307 e KS 0,001 — a média está sendo puxada por meia dúzia de linhas em 99,8% de zeros.</p>
+  </div>
+
+  <div class="card">
+    <h3 class="slide-h3" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:.95rem;">perc_zeros — quantas pessoas simplesmente não têm esse evento?</h3>
+    <p style="color:var(--muted);font-size:.86rem;line-height:1.7;">A coluna mais subestimada do relatório. Ela separa <b style="color:var(--text)">"mudou o quanto"</b> de <b style="color:var(--text)">"mudou quem"</b>. Se 64% das pessoas não faziam hora extra e agora só 16% não fazem, não foi a régua que mudou: <strong style="color:var(--text)">é outra gente</strong>.</p>
+    <p style="color:var(--muted);font-size:.86rem;line-height:1.7;margin-top:8px;">E o caso extremo: <code style="color:var(--text)">perc_zeros_atual = 100,0</code> não é drift. É uma feature <b>morta</b> — volta na Aula 4.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="A assinatura deste incidente">
+<div class="slide-inner slide-scroll">
+
+  <span class="gtag">✅ diagnóstico</span>
+  <h2 class="sec-title">Três evidências, e as três apontam para <span style="color:var(--green)">a mesma hipótese</span></h2>
+  <p class="lead">Nenhuma delas sozinha fecha o diagnóstico. Juntas, eliminam B, C e D.</p>
+
+  <div class="ev">
+    <div class="ev-item">
+      <div class="ev-n">1</div>
+      <div>
+        <h4>As razões não são redondas</h4>
+        <p><code>5,76</code> · <code>11,24</code> · <code>11,81</code> · <code>0,442</code> · <code>0,372</code> · <code>0,396</code></p>
+        <p class="ev-conc">População não muda por número redondo — mas <b>régua muda</b>. Se fosse 60, 100 ou 1/60 exatos, a hipótese B estaria na frente. <b>Elimina B.</b></p>
+      </div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-n">2</div>
+      <div>
+        <h4>As contagens de eventos mudaram junto</h4>
+        <p><code>he_eventos</code> 5,1 → 29,3 · <code>mov_sal_eventos</code> 2,17 → 0,94</p>
+        <p class="ev-conc">Troca de unidade mexe em valor, não em <b>quantidade de eventos</b>. Se o número de lançamentos por pessoa multiplicou, aconteceu algo no mundo real. <b>Reforça A, elimina B.</b></p>
+      </div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-n">3</div>
+      <div>
+        <h4>O percentual de zeros mudou muito</h4>
+        <p><code>he_eventos</code> 64,1% → 16,4% · <code>mov_sal_perc_medio</code> 39,8% → 20,6%</p>
+        <p class="ev-conc">A evidência decisiva. <b>Outras pessoas</b>, com outra rotina: quase todas fazem hora extra agora, e quase nenhuma teve movimentação salarial — coerente com unidade recém-inaugurada. <b>Confirma A.</b></p>
+      </div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-n">4</div>
+      <div>
+        <h4>E o que elimina C e D</h4>
+        <p>O drift está em <b>três blocos coerentes</b> (hora extra ↑, marcações irregulares ↓, movimentação salarial ↓), não em uma coluna solta com valor impossível — não tem cara de bug. E o <code>/saude</code> confirma que produção continua na <b>v1</b>, a mesma de janeiro. <b>Elimina C e D.</b></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout co-ok">
+    <div class="ct">O diagnóstico, escrito como deve ser escrito</div>
+    <p><i>"Data drift por entrada de subpopulação nova (unidade 12x36), possivelmente com label shift associado. Fatores irregulares, contagens de eventos alteradas e percentual de zeros deslocado em três blocos coerentes descartam troca de unidade e bug. Versão em produção inalterada descarta publicação errada."</i></p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 3 — O gabarito chega">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-a">Bloco A · observar</span>
+  <div class="step-marker">
+    <div class="step-num ">3</div>
+    <div class="step-meta">
+      <span class="step-file">monitorar.py --gabarito</span>
+      <span class="step-obj">Três meses depois. Confirma ou derruba o diagnóstico?</span>
+    </div>
+  </div>
+
+  <div class="callout co-info" style="margin-bottom:14px;">
+    <div class="ct">Duas razões para precisar do gabarito — e nenhuma é "conferir se caiu"</div>
+    <p><b>① Você ainda não sabia se caiu.</b> A taxa positiva foi de 0,60 para 0,36, e isso podia ser acerto: se as pessoas novas saem menos, marcar menos gente é o comportamento correto. E olhe o número real — a taxa de saída dessa população é <strong style="color:var(--text)">44%</strong>, não 51%. <u>Parte da queda estava certa.</u></p>
+    <p><b>② Sem rótulo você não consegue retreinar.</b> Treino supervisionado precisa de y. O <code>treinar.py</code> recebe <code>--gabarito</code> porque é de lá que sai o alvo das linhas novas. Não existe o caminho "diagnostiquei sem rótulo, então retreino sem rótulo".</p>
+  </div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">python monitorar.py --lote lote_aula2_fev --gabarito gabarito_aula2_fev.csv</div>
+</div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin:14px 0;">
+    <table class="tbl">
+      <thead><tr><th>Métrica</th><th>Baseline (v1, congelada)</th><th>Fevereiro</th><th>Variação</th></tr></thead>
+      <tbody>
+        <tr><td><b>f1</b></td><td>0,6820</td><td><strong style="color:#ff8fa3">0,5169</strong></td><td><strong style="color:#ff8fa3">−0,165</strong> desabou</td></tr>
+        <tr><td><b>recall</b></td><td>0,7449</td><td><strong style="color:#ff8fa3">0,4685</strong></td><td><strong style="color:#ff8fa3">−0,276</strong> perde metade de quem sai</td></tr>
+        <tr><td>precision</td><td>0,6289</td><td>0,5765</td><td>−0,052</td></tr>
+        <tr><td><b>accuracy</b></td><td>0,6431</td><td><strong style="color:#ffd166">0,6129</strong></td><td><strong style="color:#ffd166">−0,030</strong> quase não se move</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:12px;">
+    <div class="ct">Por que o F1 desabou e a accuracy não</div>
+    <p>A taxa real de saída caiu para 44% e o modelo passou a marcar só 36% das pessoas. Ele <b>acerta muitos negativos</b> — o que segura a accuracy — e <b>perde mais da metade dos positivos</b>, o que destrói o recall e, com ele, o F1.</p>
+    <p>Em problema desbalanceado ou com proporção que se move, <strong style="color:var(--text)">accuracy esconde exatamente o erro que importa</strong>. Se você monitorasse só accuracy, teria visto 3 pontos de queda e seguido o dia. <u>Guarde isso: na Aula 4 vai ser o contrário</u> — o F1 vai mentir e a accuracy vai denunciar.</p>
+  </div>
+
+  <div class="callout co-ok">
+    <div class="ct">E o mais importante: o rótulo confirmou o que P(X) já dizia</div>
+    <p>Você chegou ao diagnóstico correto <strong style="color:var(--text)">antes</strong> do gabarito, com distribuição de features e taxa de predição positiva. Num caso real, esses três meses de antecedência são a diferença entre avisar a Marina e ser avisado por ela.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 4 — treinar.py">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-b">Bloco B · agir</span>
+  <div class="step-marker">
+    <div class="step-num b">4</div>
+    <div class="step-meta">
+      <span class="step-file">treinar.py</span>
+      <span class="step-obj">Retreinar incorporando fevereiro. Entra como @challenger.</span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-bottom:14px;">Diagnóstico A confirmado: a relação entre comportamento e saída continua válida, o modelo só nunca viu esse pedaço do mundo. <strong style="color:var(--text)">Aqui retreinar é a ação certa</strong> — e é a única das quatro aulas em que vai ser.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">treinar.py</span>
+    <div class="code-right"><span class="lbadge">voce cria</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="s">&quot;&quot;&quot;
+Retreina o modelo incorporando um lote rotulado, e registra como @challenger.
+
+Diferente do onboard_v1.py, aqui existe um .fit() -- e por isso o lineage
+sai COMPLETO: o mesmo script que le o dado e o que treina e o que registra,
+na mesma execucao. O digest que vai para o MLflow e do dado que o .fit()
+realmente recebeu, nao do que alguem acha que recebeu.
+
+    python treinar.py --incorporar lote_aula2_fev \\
+                      --gabarito gabarito_aula2_fev.csv \\
+                      --motivo data_drift
+
+O lote rotulado e partido em dois:
+    70%  entram no treino, junto com o treino_v1
+    30%  viram a tabela validacao_atual -- o juiz do mundo novo
+
+Treinar e validar nas mesmas linhas daria um numero bonito e mentiroso.
+O candidato entra como @challenger. Quem decide se ele vira producao e o
+promover.py -- treinar e promover sao duas decisoes diferentes.
+&quot;&quot;&quot;</span>
+<span class="k">import</span> argparse
+<span class="k">import</span> subprocess
+
+<span class="k">import</span> mlflow
+<span class="k">import</span> pandas <span class="k">as</span> pd
+<span class="k">from</span> mlflow.models <span class="k">import</span> infer_signature
+<span class="k">from</span> mlflow.tracking <span class="k">import</span> MlflowClient
+<span class="k">from</span> sklearn.ensemble <span class="k">import</span> RandomForestClassifier
+<span class="k">from</span> sklearn.metrics <span class="k">import</span> accuracy_score, f1_score, precision_score, recall_score
+<span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+
+<span class="k">import</span> config
+<span class="k">from</span> app <span class="k">import</span> banco
+
+FRACAO_VALIDACAO = <span class="o">0.30</span>
+
+
+<span class="k">def</span> <span class="h">commit_atual</span>():
+    <span class="s">&quot;&quot;&quot;Parte do lineage que o onboard da v1 nao tinha: qual codigo treinou.&quot;&quot;&quot;</span>
+    <span class="k">try</span>:
+        <span class="k">return</span> subprocess.check_output(
+            [<span class="s">&quot;git&quot;</span>, <span class="s">&quot;rev-parse&quot;</span>, <span class="s">&quot;--short&quot;</span>, <span class="s">&quot;HEAD&quot;</span>],
+            cwd=config.RAIZ, stderr=subprocess.DEVNULL, text=<span class="k">True</span>).strip()
+    <span class="k">except</span> <span class="o">Exception</span>:
+        <span class="k">return</span> <span class="s">&quot;sem_git&quot;</span>
+
+
+<span class="k">def</span> <span class="h">carregar_lote_rotulado</span>(lote, gabarito):
+    <span class="s">&quot;&quot;&quot;Junta o que a API pontuou com o gabarito que o RH liberou depois.&quot;&quot;&quot;</span>
+    pontuado = banco.carregar_lote(lote)
+    <span class="k">if</span> pontuado.empty:
+        <span class="k">raise</span> <span class="o">SystemExit</span>(f&quot;lote &#x27;{lote}&#x27; nao esta no banco. Envie pelo front primeiro.&quot;)
+
+    gab = pd.read_csv(config.PASTA_DADOS / gabarito, sep=<span class="s">&quot;;&quot;</span>)
+    gab[config.COLUNA_ID] = gab[config.COLUNA_ID].astype(<span class="o">str</span>)
+    juntos = pontuado.merge(gab, on=config.COLUNA_ID, how=<span class="s">&quot;inner&quot;</span>)
+    <span class="k">if</span> <span class="o">len</span>(juntos) &lt; <span class="o">len</span>(pontuado):
+        <span class="o">print</span>(f&quot;  aviso: {<span class="o">len</span>(pontuado) - <span class="o">len</span>(juntos)} linhas sem rotulo, descartadas&quot;)
+    <span class="k">return</span> juntos
+
+
+<span class="k">def</span> <span class="h">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="s">&quot;--incorporar&quot;</span>, required=<span class="k">True</span>, help=<span class="s">&quot;nome do lote no banco&quot;</span>)
+    ap.add_argument(<span class="s">&quot;--gabarito&quot;</span>, required=<span class="k">True</span>, help=<span class="s">&quot;csv em dados/ com o rotulo&quot;</span>)
+    ap.add_argument(<span class="s">&quot;--motivo&quot;</span>, required=<span class="k">True</span>,
+                    help=<span class="s">&quot;por que este retreino existe. Vai como tag no MLflow&quot;</span>)
+    args = ap.parse_args()
+
+    banco.conferir()
+    colunas = [config.COLUNA_ID] + config.FEATURES + [config.COLUNA_ALVO]
+
+    treino_antigo = banco.carregar_conjunto(config.TABELA_TREINO)
+    lote = carregar_lote_rotulado(args.incorporar, args.gabarito)[colunas]
+
+    <span class="c"># O lote e partido ANTES de qualquer treino. A parte de validacao nunca</span>
+    <span class="c"># e vista pelo .fit().</span>
+    lote_treino, lote_validacao = train_test_split(
+        lote, test_size=FRACAO_VALIDACAO, random_state=config.SEED,
+        stratify=lote[config.COLUNA_ALVO])
+
+    treino = pd.concat([treino_antigo[colunas], lote_treino], ignore_index=<span class="k">True</span>)
+    X, y = treino[config.FEATURES], treino[config.COLUNA_ALVO]
+
+    <span class="o">print</span>(f&quot;treino: {<span class="o">len</span>(treino_antigo)} linhas antigas + {<span class="o">len</span>(lote_treino)} do lote &quot;
+          f&quot;= {<span class="o">len</span>(treino)}&quot;)
+
+    parametros = <span class="o">dict</span>(n_estimators=<span class="o">300</span>, max_depth=<span class="o">6</span>,
+                      random_state=config.SEED, n_jobs=-<span class="o">1</span>)
+    modelo = RandomForestClassifier(**parametros)
+    modelo.fit(X, y)
+
+    <span class="c"># Anexa ao conjunto de aceitacao. ANEXA, nao substitui -- ver banco.py.</span>
+    lote_validacao = lote_validacao.assign(origem=args.incorporar)
+    novas, total = banco.acumular_validacao_atual(lote_validacao)
+    <span class="o">print</span>(f&quot;validacao_atual: +{novas} linhas -&gt; {total} no total&quot;)
+
+    <span class="c"># Medida rapida nos dois juizes, so para o log deste run.</span>
+    medidas = {}
+    <span class="k">for</span> nome, tabela <span class="k">in</span> ((<span class="s">&quot;congelada&quot;</span>, config.TABELA_VALIDACAO),
+                         (<span class="s">&quot;atual&quot;</span>, config.TABELA_VALIDACAO_ATUAL)):
+        conjunto = banco.carregar_conjunto(tabela)
+        pred = modelo.predict(conjunto[config.FEATURES])
+        real = conjunto[config.COLUNA_ALVO]
+        medidas[f&quot;f1_validacao_{nome}&quot;] = f1_score(real, pred)
+        medidas[f&quot;accuracy_validacao_{nome}&quot;] = accuracy_score(real, pred)
+        medidas[f&quot;precision_validacao_{nome}&quot;] = precision_score(real, pred)
+        medidas[f&quot;recall_validacao_{nome}&quot;] = recall_score(real, pred)
+
+    mlflow.set_tracking_uri(config.URI_TRACKING)
+    mlflow.set_experiment(config.NOME_EXPERIMENTO)
+
+    <span class="k">with</span> mlflow.start_run(run_name=f&quot;retreino_{args.incorporar}&quot;) <span class="k">as</span> run:
+        mlflow.set_tags({
+            <span class="s">&quot;tipo&quot;</span>: <span class="s">&quot;retreino&quot;</span>,
+            <span class="s">&quot;motivo&quot;</span>: args.motivo,
+            <span class="s">&quot;lote_incorporado&quot;</span>: args.incorporar,
+            <span class="s">&quot;origem&quot;</span>: <span class="s">&quot;mlflow&quot;</span>,
+            <span class="s">&quot;lineage&quot;</span>: <span class="s">&quot;completo&quot;</span>,      <span class="c"># a diferenca em relacao a v1</span>
+            <span class="s">&quot;commit&quot;</span>: commit_atual(),
+        })
+
+        <span class="c"># Lineage de verdade: os dois datasets que o .fit() realmente viu.</span>
+        mlflow.log_input(
+            mlflow.data.from_pandas(treino, name=f&quot;treino+{args.incorporar}&quot;,
+                                    targets=config.COLUNA_ALVO),
+            context=<span class="s">&quot;training&quot;</span>)
+        mlflow.log_input(
+            mlflow.data.from_pandas(lote_validacao, name=config.TABELA_VALIDACAO_ATUAL,
+                                    targets=config.COLUNA_ALVO),
+            context=<span class="s">&quot;validation&quot;</span>)
+
+        mlflow.log_params({
+            <span class="s">&quot;tipo_modelo&quot;</span>: <span class="o">type</span>(modelo).__name__,
+            <span class="s">&quot;n_features&quot;</span>: <span class="o">len</span>(config.FEATURES),
+            <span class="s">&quot;linhas_treino&quot;</span>: <span class="o">len</span>(treino),
+            <span class="s">&quot;linhas_do_lote&quot;</span>: <span class="o">len</span>(lote_treino),
+            <span class="s">&quot;fracao_validacao&quot;</span>: FRACAO_VALIDACAO,
+            **{k: v <span class="k">for</span> k, v <span class="k">in</span> parametros.items() <span class="k">if</span> k != <span class="s">&quot;n_jobs&quot;</span>},
+        })
+        mlflow.log_metrics(medidas)
+
+        mlflow.sklearn.log_model(
+            sk_model=modelo,
+            artifact_path=<span class="s">&quot;modelo&quot;</span>,
+            signature=infer_signature(X, modelo.predict(X)),
+            input_example=X.head(<span class="o">3</span>),
+            registered_model_name=config.NOME_MODELO,
+        )
+        run_id = run.info.run_id
+
+    cliente = MlflowClient()
+    versao = <span class="o">max</span>(cliente.search_model_versions(f&quot;name=&#x27;{config.NOME_MODELO}&#x27;&quot;),
+                 key=<span class="k">lambda</span> v: <span class="o">int</span>(v.version))
+    cliente.set_registered_model_alias(
+        config.NOME_MODELO, config.ALIAS_CANDIDATO, versao.version)
+
+    <span class="o">print</span>(f&quot;\nrun_id  {run_id}&quot;)
+    <span class="o">print</span>(f&quot;versao  {versao.version}  -&gt;  @{config.ALIAS_CANDIDATO}&quot;)
+    <span class="o">print</span>(<span class="s">&quot;\nmedidas deste candidato:&quot;</span>)
+    <span class="k">for</span> k, v <span class="k">in</span> medidas.items():
+        <span class="o">print</span>(f&quot;  {k:&lt;32} {v:.4f}&quot;)
+    <span class="o">print</span>(f&quot;\nA producao NAO mudou: @{config.ALIAS_PROD} continua onde estava.&quot;)
+    <span class="o">print</span>(f&quot;Para decidir:  python promover.py --versao {versao.version}&quot;)
+
+
+<span class="k">if</span> __name__ == <span class="s">&quot;__main__&quot;</span>:
+    main()</div>
+</div>
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">python treinar.py --incorporar lote_aula2_fev --gabarito gabarito_aula2_fev.csv --motivo data_drift</div>
+</div>
+
+  <div class="bloco">
+  <div class="barra"><span class="arq">saída</span>
+    <div class="code-right"><span class="lbadge">saída</span></div></div>
+  <div class="code" style="display:block;max-height:none">treino: 19200 linhas antigas + 980 do lote = 20180
+<span class="s">validacao_atual: +420 linhas -> 420 no total</span>
+Registered model 'turnover_rh' already exists. Creating a new version of this model...
+<span class="o">Created version '2' of model 'turnover_rh'.</span>
+
+run_id  61888ba5d0704570af9493d07a4cadca
+versao  <span class="o">2</span>  ->  @<span class="o">challenger</span>
+
+medidas deste candidato:
+  f1_validacao_congelada           0.6779
+  accuracy_validacao_congelada     0.6402
+  f1_validacao_atual               <span class="s">0.6718</span>
+  accuracy_validacao_atual         <span class="s">0.6976</span>
+
+A producao NAO mudou: @champion continua onde estava.
+Para decidir:  python promover.py --versao 2</div>
+</div>
+
+  <div class="callout co-warn">
+    <div class="ct">O lote é partido 70/30 ANTES do .fit()</div>
+    <p>980 linhas entram no treino junto com as 19.200 antigas. 420 vão para a tabela <code>validacao_atual</code>. <strong style="color:var(--text)">Treinar e validar nas mesmas linhas daria um número bonito e mentiroso</strong> — e é um erro fácil de cometer quando o dado novo é escasso e dá vontade de usar tudo.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Anatomia — o MLflow dentro do treinar.py">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">o que é novo aqui</span>
+  <h2 class="sec-title">Vocês já sabem treinar. O que é novo é <span style="color:var(--cyan)">tudo em volta</span></h2>
+  <p class="lead">O <code class="inline">.fit()</code> é uma linha e não tem nada de especial. As oito decisões de MLflow em volta dele são o conteúdo desta aula.</p>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <table class="tbl">
+      <thead><tr><th>Linha</th><th>O que ela decide</th></tr></thead>
+      <tbody>
+        <tr class="sep-a"><td><code>mlflow.set_experiment(NOME)</code></td>
+            <td>põe o run na <b>mesma gaveta</b> do onboarding da v1. Sem isso ele cai em <code>Default</code> e você não consegue comparar as duas versões na tela — só runs do mesmo experimento aparecem juntos em <b>Compare</b></td></tr>
+        <tr><td><code>start_run(run_name=...)</code></td>
+            <td>o nome é o que você vai procurar em seis meses. <code>retreino_lote_aula2_fev</code> diz o que foi e sobre o quê; <code>run_23</code> não diz nada</td></tr>
+        <tr class="sep-c"><td><code>set_tags({...})</code></td>
+            <td>cinco etiquetas, cada uma respondendo a uma pergunta futura: <code>tipo=retreino</code> (filtrar), <code>motivo=data_drift</code> (por que existiu), <code>lote_incorporado</code> (sobre qual dado), <code>lineage=completo</code> (dá para confiar?), <code>commit</code> (qual código)</td></tr>
+        <tr><td><code>log_input(..., context="training")</code></td>
+            <td>registra <b>o digest do dado que o .fit() realmente recebeu</b>. Esta é a linha que muda <code>lineage=incompleto</code> para <code>completo</code> — na v1 o dataset foi apontado à mão, aqui é o objeto que entrou no treino</td></tr>
+        <tr><td><code>log_input(..., context="validation")</code></td>
+            <td>o segundo dataset. O <code>context</code> é o que permite ao MLflow mostrar "treinado com X, validado com Y" em vez de dois datasets soltos</td></tr>
+        <tr><td><code>log_params({...})</code></td>
+            <td>hiperparâmetros <b>mais</b> as decisões do retreino: <code>linhas_treino</code>, <code>linhas_do_lote</code>, <code>fracao_validacao</code>. Param é o que você escolheu antes — e "quanto do lote novo eu deixei entrar" é uma escolha</td></tr>
+        <tr><td><code>log_metrics(medidas)</code></td>
+            <td>oito métricas: as quatro em cada juiz. <b>Registrar nos dois é deliberado</b> — promover é sempre uma troca, e o custo tem que estar escrito</td></tr>
+        <tr class="sep-a"><td><code>log_model(..., registered_model_name=)</code></td>
+            <td><b>é este argumento que cria a v2</b>, não o <code>log_model</code> sozinho. Sem ele, o modelo fica como arquivo dentro do run e nunca entra no catálogo de versões</td></tr>
+        <tr><td><code>set_registered_model_alias(..., ALIAS_CANDIDATO, v)</code></td>
+            <td>pendura <code>@challenger</code>. A v2 existe, está registrada, <b>e não atende ninguém</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-ok" style="margin-bottom:12px;">
+    <div class="ct">A decisão de arquitetura mais importante do script</div>
+    <p><strong style="color:var(--text)">Treinar e promover são duas decisões diferentes, em dois scripts diferentes.</strong> Separá-las é metade do valor do Model Registry: você pode treinar dez candidatos por semana sem nenhum deles chegar perto de produção, e a promoção passa por um portão com regra explícita. Se o <code>treinar.py</code> movesse o <code>@champion</code>, todo retreino seria um deploy.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Como o número da versão aparece</div>
+    <p>Você não escolhe. O <code>registered_model_name</code> faz o registry incrementar sozinho — a v1 veio do onboarding, esta é a v2. Depois o script busca a maior versão com <code>search_model_versions</code> para saber em qual pendurar o alias. Em equipe isso tem uma pegadinha: se dois colegas registrarem ao mesmo tempo, os números podem sair trocados. Em produção de verdade se usa o <code>model_info</code> devolvido pelo <code>log_model</code>.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Na UI — o Model Registry com duas versões">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">na UI do MLflow</span>
+  <h2 class="sec-title">Agora existem <span style="color:var(--cyan)">duas versões</span>, e uma delas não atende ninguém</h2>
+  <p class="lead">Antes de decidir qualquer coisa, vá olhar. Aba <b>Models → turnover_rh</b>.</p>
+
+  <div class="ui-tour">
+    <div class="ui-item">
+      <div class="ui-n">1</div>
+      <div>
+        <h4>A lista de versões</h4>
+        <p>Duas linhas. A <b>v1</b> com <code>@champion</code>, a <b>v2</b> com <code>@challenger</code>. Os aliases aparecem como etiquetas ao lado do número — e é isso que a sua API consulta a cada boot.</p>
+        <p class="ui-q">Responde: <i>quem atende produção, e quem está na fila?</i></p>
+      </div>
+    </div>
+    <div class="ui-item">
+      <div class="ui-n">2</div>
+      <div>
+        <h4>Clique na v2</h4>
+        <p>A página da versão traz o <b>link para o run que a gerou</b>, a signature, e as tags de versão. Repare que ainda <u>não existe</u> a tag <code>validado_em</code> — ela só aparece quando alguém promover, e é o registro de <b>em que conjunto a decisão foi tomada</b>.</p>
+        <p class="ui-q">Responde: <i>de onde veio essa versão e o que ela promete receber?</i></p>
+      </div>
+    </div>
+    <div class="ui-item">
+      <div class="ui-n">3</div>
+      <div>
+        <h4>Volte em Experiments e marque os dois runs</h4>
+        <p>Botão <b>Compare</b>. O MLflow alinha params e metrics em colunas e destaca o que difere. Aqui você vê, lado a lado, o <code>lineage=incompleto</code> da v1 contra o <code>completo</code> da v2 — e as oito métricas nos dois juízes.</p>
+        <p class="ui-q">Responde: <i>o que mudou entre uma versão e outra?</i></p>
+      </div>
+    </div>
+    <div class="ui-item">
+      <div class="ui-n">4</div>
+      <div>
+        <h4>Datasets used, nos dois runs</h4>
+        <p>No da v1: um dataset, sem validação, apontado à mão. No da v2: <b>dois</b>, com <code>context</code> de treino e validação, e o digest do que realmente entrou no <code>.fit()</code>.</p>
+        <p class="ui-q">Responde: <i>dá para provar de qual dado saiu esse modelo?</i></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout co-warn">
+    <div class="ct">O que a tela deixa claro e o terminal não</div>
+    <p>Que <strong style="color:var(--text)">registrar não é publicar</strong>. A v2 está no catálogo, com métricas melhores num dos conjuntos, e a produção continua na v1. Nenhum dos dois estados é acidente — os dois foram escolhidos por uma linha de código.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Os dois juízes">
+<div class="slide-inner slide-scroll">
+
+  <span class="ptag">correção de vocabulário</span>
+  <h2 class="sec-title">"Então a validação <span style="color:var(--purple)">não é mais congelada</span>?"</h2>
+  <p class="lead">É a pergunta certa, e revela que "conjunto de teste" no singular não dá conta do problema. Não é um conjunto sendo substituído por outro: <strong style="color:var(--text)">são dois objetos com propósitos diferentes</strong>, e os dois existem ao mesmo tempo.</p>
+
+  <div class="dois-mundos">
+    <div class="dm-col">
+      <h4>validacao_congelada</h4>
+      <p class="dm-q">Guarda de regressão</p>
+      <p class="dm-r"><b style="color:var(--text)">Nunca muda. Nunca é apagada. Nunca cresce.</b></p>
+      <p class="dm-r" style="margin-top:8px">Responde: <i>"eu quebrei o que já funcionava?"</i></p>
+      <p class="dm-r" style="margin-top:8px">É o mundo de dezembro, preservado de propósito. Se as outras unidades continuam operando como antes, este número continua importando para sempre.</p>
+    </div>
+    <div class="dm-col destaque">
+      <h4>validacao_atual</h4>
+      <p class="dm-q">Conjunto de aceitação</p>
+      <p class="dm-r"><b style="color:var(--text)">Acumula. Cada lote rotulado é anexado.</b></p>
+      <p class="dm-r" style="margin-top:8px">Responde: <i>"serve para o mundo de agora?"</i></p>
+      <p class="dm-r" style="margin-top:8px">Representa a população que o modelo atende hoje. Hoje tem 420 linhas, só de Dourados; em março terá as de março também, e a mistura vai convergindo para a mistura real da operação.</p>
+    </div>
+  </div>
+
+  <h3 class="slide-h3" style="margin-top:20px;">A regra de atualização</h3>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+    <table class="tbl">
+      <thead><tr><th>Pergunta</th><th>Regra</th></tr></thead>
+      <tbody>
+        <tr><td><b>Quando atualizar?</b></td><td>quando há <b>evidência de mudança de população</b> no relatório de drift. Não é calendário, e <u>não é "quando o resultado não agrada"</u></td></tr>
+        <tr><td><b>Com o quê?</b></td><td>com a parte rotulada do lote que você <b>não</b> usou no treino — os 30% separados antes do <code>.fit()</code></td></tr>
+        <tr><td><b>Substitui ou acumula?</b></td><td><b>acumula.</b> O <code>INSERT ... ON CONFLICT DO NOTHING</code> anexa sem duplicar. Se cada mês apagasse o anterior, o juiz seria sempre 100% da unidade mais recente</td></tr>
+        <tr><td><b>Apaga a congelada?</b></td><td><b>nunca.</b> Ela é o outro número da decisão</td></tr>
+        <tr><td><b>Quem decide?</b></td><td>você, na flag <code>--validacao</code>. E fica gravado na tag <code>validado_em</code> da versão promovida</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-err">
+    <div class="ct">Uma ressalva honesta sobre o conjunto de hoje</div>
+    <p>Com 420 linhas e <strong style="color:var(--text)">100% de Dourados</strong>, este conjunto de aceitação é otimista: ele mede o ganho da v2 numa população em que ela é especialista. Dourados são 400 de uns 3.000 colaboradores — o conjunto ideal teria ~13% de Dourados, refletindo a operação real.</p>
+    <p>É por isso que o <code>promover.py</code> imprime <u>os dois números sempre</u>. A decisão honesta não é "ganhei 0,13", é <strong style="color:var(--text)">"ganho 0,13 na população nova e perco 0,004 na histórica"</strong>. Conforme março e abril entrarem, a mistura se corrige e o número fica mais confiável.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 5 — O portão">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-b">Bloco B · agir</span>
+  <div class="step-marker">
+    <div class="step-num b">5</div>
+    <div class="step-meta">
+      <span class="step-file">promover.py</span>
+      <span class="step-obj">Decidir se o @challenger vira @champion.</span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-bottom:14px;">O portão tem uma regra que não se negocia e uma decisão que é sua. A regra: <strong style="color:var(--text)">os dois modelos são medidos no mesmo conjunto</strong>. A decisão: qual conjunto decide.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">promover.py</span>
+    <div class="code-right"><span class="lbadge">voce cria</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="s">&quot;&quot;&quot;
+O portao. Decide se o @challenger vira @champion.
+
+    python promover.py --versao 2
+    python promover.py --versao 2 --validacao validacao_atual
+
+Regra unica e nao negociavel: os dois modelos sao medidos NO MESMO CONJUNTO.
+Comparar em conjuntos diferentes e a forma mais comum de promover um modelo
+pior sem perceber.
+
+Qual conjunto usar, isso sim e decisao sua -- e fica registrada na tag
+`validado_em` da versao promovida. Um conjunto de teste representa uma
+populacao; se a populacao mudou, ele envelheceu junto com ela.
+&quot;&quot;&quot;</span>
+<span class="k">import</span> argparse
+
+<span class="k">import</span> mlflow
+<span class="k">import</span> pandas <span class="k">as</span> pd
+<span class="k">from</span> mlflow.tracking <span class="k">import</span> MlflowClient
+<span class="k">from</span> sklearn.metrics <span class="k">import</span> accuracy_score, f1_score, precision_score, recall_score
+
+<span class="k">import</span> config
+<span class="k">from</span> app <span class="k">import</span> banco
+
+CONJUNTOS = {
+    <span class="s">&quot;validacao_congelada&quot;</span>: config.TABELA_VALIDACAO,
+    <span class="s">&quot;validacao_atual&quot;</span>: config.TABELA_VALIDACAO_ATUAL,
+}
+
+
+<span class="k">def</span> <span class="h">medir</span>(modelo, conjunto):
+    pred = modelo.predict(conjunto[config.FEATURES])
+    real = conjunto[config.COLUNA_ALVO]
+    <span class="k">return</span> {
+        <span class="s">&quot;f1&quot;</span>: f1_score(real, pred),
+        <span class="s">&quot;accuracy&quot;</span>: accuracy_score(real, pred),
+        <span class="s">&quot;precision&quot;</span>: precision_score(real, pred),
+        <span class="s">&quot;recall&quot;</span>: recall_score(real, pred),
+        <span class="s">&quot;taxa_predicao_positiva&quot;</span>: <span class="o">float</span>(pred.mean()),
+    }
+
+
+<span class="k">def</span> <span class="h">main</span>():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(<span class="s">&quot;--versao&quot;</span>, required=<span class="k">True</span>, help=<span class="s">&quot;versao candidata&quot;</span>)
+    ap.add_argument(<span class="s">&quot;--validacao&quot;</span>, default=<span class="s">&quot;validacao_congelada&quot;</span>,
+                    choices=<span class="o">list</span>(CONJUNTOS))
+    ap.add_argument(<span class="s">&quot;--forcar&quot;</span>, action=<span class="s">&quot;store_true&quot;</span>,
+                    help=<span class="s">&quot;promove mesmo reprovado. Fica registrado como tal&quot;</span>)
+    args = ap.parse_args()
+
+    mlflow.set_tracking_uri(config.URI_TRACKING)
+    <span class="c"># Sem set_experiment, o run cai no experimento &quot;Default&quot; -- fora da gaveta</span>
+    <span class="c"># onde vive o resto do historico do modelo. A decisao de promocao faz</span>
+    <span class="c"># parte desse historico tanto quanto o treino.</span>
+    mlflow.set_experiment(config.NOME_EXPERIMENTO)
+    cliente = MlflowClient()
+
+    campeao_versao = cliente.get_model_version_by_alias(
+        config.NOME_MODELO, config.ALIAS_PROD).version
+    <span class="k">if</span> campeao_versao == args.versao:
+        <span class="k">raise</span> <span class="o">SystemExit</span>(f&quot;a versao {args.versao} JA e o @{config.ALIAS_PROD}.&quot;)
+
+    <span class="c"># Carrega os dois modelos POR NUMERO DE VERSAO, nao por alias: precisamos</span>
+    <span class="c"># do campeao atual e do candidato, e o alias do candidato pode nem existir.</span>
+    campeao = mlflow.sklearn.load_model(
+        f&quot;models:/{config.NOME_MODELO}/{campeao_versao}&quot;)
+    candidato = mlflow.sklearn.load_model(
+        f&quot;models:/{config.NOME_MODELO}/{args.versao}&quot;)
+
+    <span class="c"># Mede nos DOIS conjuntos, sempre. Promover e uma troca: o numero que</span>
+    <span class="c"># voce ganha de um lado costuma custar algo do outro, e esconder o custo</span>
+    <span class="c"># e a forma mais elegante de tomar uma decisao ruim.</span>
+    resultado = {}
+    <span class="k">for</span> nome, tabela_sql <span class="k">in</span> CONJUNTOS.items():
+        conjunto = banco.carregar_conjunto(tabela_sql)
+        <span class="k">if</span> conjunto.empty:
+            <span class="k">continue</span>
+        resultado[nome] = {
+            <span class="s">&quot;linhas&quot;</span>: <span class="o">len</span>(conjunto),
+            <span class="s">&quot;alvo&quot;</span>: conjunto[config.COLUNA_ALVO].mean(),
+            <span class="s">&quot;campeao&quot;</span>: medir(campeao, conjunto),
+            <span class="s">&quot;candidato&quot;</span>: medir(candidato, conjunto),
+        }
+    <span class="k">if</span> args.validacao <span class="k">not</span> <span class="k">in</span> resultado:
+        <span class="k">raise</span> <span class="o">SystemExit</span>(f&quot;&#x27;{args.validacao}&#x27; esta vazio. &quot;
+                         f&quot;Rode o treinar.py antes.&quot;)
+
+    <span class="k">for</span> nome, r <span class="k">in</span> resultado.items():
+        decide = <span class="s">&quot; &lt;- DECIDE&quot;</span> <span class="k">if</span> nome == args.validacao <span class="k">else</span> <span class="s">&quot;&quot;</span>
+        <span class="o">print</span>(f&quot;\n{nome}  ({r[<span class="s">&#x27;linhas&#x27;</span>]} linhas, alvo em {r[<span class="s">&#x27;alvo&#x27;</span>]:.1%})&quot;
+              f&quot;{decide}&quot;)
+        <span class="o">print</span>(pd.DataFrame({
+            f&quot;campeao v{campeao_versao}&quot;: r[<span class="s">&quot;campeao&quot;</span>],
+            f&quot;candidato v{args.versao}&quot;: r[<span class="s">&quot;candidato&quot;</span>],
+        }).<span class="o">round</span>(<span class="o">4</span>).to_string())
+        d = r[<span class="s">&quot;candidato&quot;</span>][<span class="s">&quot;f1&quot;</span>] - r[<span class="s">&quot;campeao&quot;</span>][<span class="s">&quot;f1&quot;</span>]
+        <span class="o">print</span>(f&quot;  ganho de f1   {d:+.4f}&quot;)
+
+    ganho = (resultado[args.validacao][<span class="s">&quot;candidato&quot;</span>][<span class="s">&quot;f1&quot;</span>]
+             - resultado[args.validacao][<span class="s">&quot;campeao&quot;</span>][<span class="s">&quot;f1&quot;</span>])
+    aprovado = ganho &gt;= config.GANHO_MINIMO
+    veredito = <span class="s">&quot;APROVADO&quot;</span> <span class="k">if</span> aprovado <span class="k">else</span> <span class="s">&quot;REPROVADO&quot;</span>
+
+    <span class="o">print</span>(f&quot;\n{<span class="s">&#x27;-&#x27;</span> * <span class="o">58</span>}&quot;)
+    <span class="o">print</span>(f&quot;decidido em      {args.validacao}&quot;)
+    <span class="o">print</span>(f&quot;ganho de f1      {ganho:+.4f}   (minimo exigido &quot;
+          f&quot;{config.GANHO_MINIMO:+.4f})&quot;)
+    <span class="o">print</span>(f&quot;veredito         {veredito}&quot;)
+    outro = <span class="o">next</span>((n <span class="k">for</span> n <span class="k">in</span> resultado <span class="k">if</span> n != args.validacao), <span class="k">None</span>)
+    <span class="k">if</span> outro:
+        d = (resultado[outro][<span class="s">&quot;candidato&quot;</span>][<span class="s">&quot;f1&quot;</span>]
+             - resultado[outro][<span class="s">&quot;campeao&quot;</span>][<span class="s">&quot;f1&quot;</span>])
+        rotulo = <span class="s">&quot;ganho&quot;</span> <span class="k">if</span> d &gt;= <span class="o">0</span> <span class="k">else</span> <span class="s">&quot;custo&quot;</span>
+        <span class="o">print</span>(f&quot;{rotulo} em {outro}   {d:+.4f}   &lt;- a outra metade da decisao&quot;)
+
+    <span class="k">with</span> mlflow.start_run(run_name=f&quot;promocao_v{args.versao}_{args.validacao}&quot;):
+        mlflow.set_tags({
+            <span class="s">&quot;tipo&quot;</span>: <span class="s">&quot;promocao&quot;</span>,
+            <span class="s">&quot;versao_candidata&quot;</span>: args.versao,
+            <span class="s">&quot;versao_campeao&quot;</span>: campeao_versao,
+            <span class="s">&quot;validado_em&quot;</span>: args.validacao,
+            <span class="s">&quot;veredito&quot;</span>: veredito.lower(),
+            <span class="s">&quot;forcado&quot;</span>: <span class="o">str</span>(args.forcar).lower(),
+        })
+        mlflow.log_params({
+            <span class="s">&quot;validacao&quot;</span>: args.validacao,
+            <span class="s">&quot;linhas_validacao&quot;</span>: resultado[args.validacao][<span class="s">&quot;linhas&quot;</span>],
+            <span class="s">&quot;ganho_minimo&quot;</span>: config.GANHO_MINIMO})
+        <span class="c"># Metricas dos dois conjuntos no mesmo run: quem abrir isso em seis</span>
+        <span class="c"># meses ve o ganho E o custo, nao so o numero que justificou a decisao.</span>
+        <span class="k">for</span> nome, r <span class="k">in</span> resultado.items():
+            mlflow.log_metrics({
+                **{f&quot;{nome}_campeao_{k}&quot;: v <span class="k">for</span> k, v <span class="k">in</span> r[<span class="s">&quot;campeao&quot;</span>].items()},
+                **{f&quot;{nome}_candidato_{k}&quot;: v <span class="k">for</span> k, v <span class="k">in</span> r[<span class="s">&quot;candidato&quot;</span>].items()},
+                f&quot;{nome}_ganho_f1&quot;: (r[<span class="s">&quot;candidato&quot;</span>][<span class="s">&quot;f1&quot;</span>] - r[<span class="s">&quot;campeao&quot;</span>][<span class="s">&quot;f1&quot;</span>]),
+            })
+        mlflow.log_metric(<span class="s">&quot;ganho_f1&quot;</span>, ganho)
+
+    <span class="k">if</span> <span class="k">not</span> aprovado <span class="k">and</span> <span class="k">not</span> args.forcar:
+        <span class="o">print</span>(f&quot;\nA producao NAO mudou. @{config.ALIAS_PROD} segue na &quot;
+              f&quot;v{campeao_versao}.&quot;)
+        <span class="o">print</span>(<span class="s">&quot;Antes de forcar, responda: este conjunto representa a &quot;</span>
+              <span class="s">&quot;populacao que o modelo vai atender?&quot;</span>)
+        <span class="k">return</span>
+
+    cliente.set_registered_model_alias(
+        config.NOME_MODELO, config.ALIAS_PROD, args.versao)
+    cliente.set_model_version_tag(
+        config.NOME_MODELO, args.versao, <span class="s">&quot;validado_em&quot;</span>, args.validacao)
+    cliente.delete_registered_model_alias(
+        config.NOME_MODELO, config.ALIAS_CANDIDATO)
+
+    <span class="o">print</span>(f&quot;\n@{config.ALIAS_PROD}  v{campeao_versao} -&gt; v{args.versao}&quot;)
+    <span class="o">print</span>(<span class="s">&quot;Clique em &#x27;Recarregar modelo&#x27; no front para a API pegar a troca.&quot;</span>)
+
+
+<span class="k">if</span> __name__ == <span class="s">&quot;__main__&quot;</span>:
+    main()</div>
+</div>
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">python promover.py --versao 2</div>
+</div>
+
+  <div class="callout co-warn">
+    <div class="ct">Por que medir no mesmo conjunto é regra e não preferência</div>
+    <p>Comparar o campeão num conjunto com o candidato em outro é a forma mais comum de promover um modelo pior sem perceber — e é fácil fazer sem querer, porque o número do campeão costuma estar salvo de antes. <strong style="color:var(--text)">O script recarrega os dois modelos e mede os dois agora</strong>, mesmo que já exista métrica registrada.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Anatomia — o MLflow dentro do promover.py">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">o que é novo aqui</span>
+  <h2 class="sec-title">As cinco chamadas que <span style="color:var(--cyan)">movem produção</span></h2>
+  <p class="lead">Este script não treina nada e não cria versão. Ele só lê o registry, mede, e move um ponteiro. São cinco chamadas, e todas são novas para vocês.</p>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <table class="tbl">
+      <thead><tr><th>Chamada</th><th>O que faz</th></tr></thead>
+      <tbody>
+        <tr class="sep-a"><td><code>get_model_version_by_alias(NOME, "champion")</code></td>
+            <td>descobre <b>qual número</b> está atendendo produção agora. A aplicação nunca precisa disso; o portão precisa, para saber contra quem comparar</td></tr>
+        <tr><td><code>load_model("models:/turnover_rh/2")</code></td>
+            <td>carrega <b>por número de versão</b>, não por alias. Note a diferença: <code>/2</code> com barra é versão fixa, <code>@champion</code> com arroba é ponteiro. Aqui queremos os dois modelos específicos, então usamos o número</td></tr>
+        <tr class="sep-c"><td><code>set_registered_model_alias(NOME, "champion", 2)</code></td>
+            <td><b>a linha que troca a produção.</b> No Postgres é um UPDATE numa linha de <code>registered_model_aliases</code>. Nenhum deploy, nenhum restart, nenhum arquivo editado</td></tr>
+        <tr><td><code>set_model_version_tag(NOME, 2, "validado_em", ...)</code></td>
+            <td>grava na <b>versão</b> (não no run) em que conjunto a decisão foi tomada. Daqui a seis meses é isso que responde "por que essa versão foi aprovada?"</td></tr>
+        <tr><td><code>delete_registered_model_alias(NOME, "challenger")</code></td>
+            <td>limpa a fila. Se o challenger virou champion, deixar os dois apontando para a mesma versão só confunde quem olhar depois</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="slide-h3">E o run de promoção</h3>
+  <div class="g2" style="margin-bottom:14px;">
+    <div class="card">
+      <strong style="color:var(--cyan);font-size:.88rem">Por que registrar uma decisão como run</strong>
+      <p style="color:var(--muted);font-size:.82rem;line-height:1.7;margin-top:8px">Porque <b>a decisão é um evento</b>, com data, autor, evidência e resultado. As tags guardam <code style="color:var(--text)">veredito</code>, <code style="color:var(--text)">validado_em</code> e as duas versões comparadas. O run <u>reprovado</u> também fica — saber que alguém tentou promover e o portão barrou vale tanto quanto saber que promoveu.</p>
+    </div>
+    <div class="card">
+      <strong style="color:var(--green);font-size:.88rem">As métricas dos dois conjuntos no mesmo run</strong>
+      <p style="color:var(--muted);font-size:.82rem;line-height:1.7;margin-top:8px">Prefixadas por conjunto: <code style="color:var(--text)">validacao_congelada_ganho_f1</code> e <code style="color:var(--text)">validacao_atual_ganho_f1</code>. Quem abrir isso depois vê <b>o ganho e o custo</b>, não só o número que justificou a decisão.</p>
+    </div>
+  </div>
+
+  <div class="callout co-err">
+    <div class="ct">O outro lado de trocar produção sem deploy</div>
+    <p>Se promover troca a produção sem deploy, <strong style="color:var(--text)">promover errado também troca sem deploy</strong> — e sem code review, sem CI, sem ninguém olhando. É exatamente por isso que o portão precisa ser um script com regra explícita e registro, e não um clique na interface. A flag <code>--forcar</code> existe, e grava <code>forcado=true</code> na tag.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="A armadilha">
+<div class="slide-inner slide-scroll">
+
+  <span class="otag">o momento da aula</span>
+  <h2 class="sec-title">O portão <span style="color:var(--orange)">reprovou</span> a v2</h2>
+
+  <div class="bloco">
+  <div class="barra"><span class="arq">python promover.py --versao 2</span>
+    <div class="code-right"><span class="lbadge">saída</span></div></div>
+  <div class="code" style="display:block;max-height:none">validacao_congelada  (4800 linhas, alvo em 51.4%) <span class="o">&lt;- DECIDE</span>
+                        campeao v1  candidato v2
+f1                          <span class="s">0.6820</span>        <span class="o">0.6779</span>
+accuracy                    0.6431        0.6402
+precision                   0.6289        0.6276
+recall                      0.7449        0.7368
+taxa_predicao_positiva      0.6085        0.6031
+  ganho de f1   <span class="o">-0.0042</span>
+
+validacao_atual  (420 linhas, alvo em 44.3%)
+                        campeao v1  candidato v2
+f1                          <span class="o">0.5370</span>        <span class="s">0.6718</span>
+accuracy                    0.6429        0.6976
+precision                   0.6304        0.6468
+recall                      <span class="o">0.4677</span>        <span class="s">0.6989</span>
+taxa_predicao_positiva      0.3286        0.4786
+  ganho de f1   <span class="s">+0.1348</span>
+
+----------------------------------------------------------
+decidido em      <span class="s">validacao_congelada</span>
+ganho de f1      <span class="o">-0.0042</span>   (minimo exigido +0.0050)
+veredito         <span class="o">REPROVADO</span>
+ganho em validacao_atual   <span class="s">+0.1348</span>   &lt;- a outra metade da decisao
+
+A producao NAO mudou. @champion segue na v1.
+Antes de forcar, responda: este conjunto representa a populacao que o modelo vai atender?</div>
+</div>
+
+  <div class="callout co-err" style="margin:14px 0;">
+    <div class="ct">Pare aqui antes de ler o próximo slide</div>
+    <p>Você retreinou por um motivo correto, com evidência sólida, e o portão disse que o modelo novo é pior. <strong style="color:var(--text)">A v2 é pior mesmo?</strong> A resposta está na própria tela, na segunda tabela.</p>
+  </div>
+
+  <div class="g3">
+    <div class="card"><strong style="color:var(--muted);font-size:.85rem">Hipótese 1</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">o retreino não ajudou: 1.400 linhas novas contra 19.200 antigas é pouco peso</p></div>
+    <div class="card"><strong style="color:var(--muted);font-size:.85rem">Hipótese 2</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">o retreino estragou o modelo para a população antiga</p></div>
+    <div class="card"><strong style="color:var(--cyan);font-size:.85rem">Hipótese 3</strong><p style="color:var(--muted);font-size:.8rem;margin-top:6px">a pergunta que o portão fez está errada</p></div>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Teoria — o juiz envelhece">
+<div class="slide-inner slide-scroll">
+
+  <span class="tag">teoria</span>
+  <h2 class="sec-title">O conjunto de teste <span style="color:var(--orange)">envelhece</span> junto com a população</h2>
+  <p class="lead">A <code class="inline">validacao_congelada</code> foi cortada das 24.000 pessoas que existiam antes de Dourados abrir. Ela representa, com fidelidade, <strong style="color:var(--text)">um mundo que não é mais o único que existe</strong>.</p>
+
+  <div class="dois-mundos">
+    <div class="dm-col">
+      <h4>O que o portão perguntou</h4>
+      <p class="dm-q">"A v2 é melhor que a v1 <b>na população de dezembro</b>?"</p>
+      <p class="dm-r">Resposta honesta: não, é 0,004 pior. A v2 gastou capacidade aprendendo um perfil que quase não aparece nesse conjunto.</p>
+    </div>
+    <div class="dm-col destaque">
+      <h4>O que importava perguntar</h4>
+      <p class="dm-q">"A v2 é melhor que a v1 <b>na população que ela vai atender amanhã</b>?"</p>
+      <p class="dm-r">É a pergunta operacional. E é outra pergunta, com outra resposta: +0,1348.</p>
+    </div>
+  </div>
+
+  <div class="callout co-err" style="margin:16px 0 12px;">
+    <div class="ct">A consequência, dita de forma direta</div>
+    <p>Julgar um modelo feito para o mundo novo usando o teste do mundo velho <strong style="color:var(--text)">reprova exatamente os modelos que você precisa promover</strong>. E o pior: reprova com um número, o que dá ao erro uma aparência de rigor.</p>
+  </div>
+
+  <div class="callout co-warn" style="margin-bottom:12px;">
+    <div class="ct">Isso NÃO é licença para trocar de conjunto até passar</div>
+    <p>Se a regra fosse "troque o teste quando o resultado não agradar", o portão não serviria para nada. As duas condições que tornam a troca legítima:</p>
+    <p><b>①</b> o conjunto novo precisa <strong style="color:var(--text)">representar a população que o modelo vai atender</strong>, e você precisa poder defender isso com evidência — que é exatamente o relatório de drift que você gerou dois passos atrás;</p>
+    <p><b>②</b> a troca tem que ser <strong style="color:var(--text)">registrada</strong>. O <code>promover.py</code> grava <code>validado_em</code> na versão promovida, então daqui a seis meses dá para saber em que conjunto aquela decisão foi tomada — e questioná-la.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Olhe o recall do campeão na população nova: 0,4677</div>
+    <p>A v1 <strong style="color:var(--text)">deixa passar mais da metade</strong> de quem vai pedir demissão em Dourados. A v2 pega 70%. Esse é o custo real que o conjunto antigo escondia — e é literalmente o que a Marina notou quando disse que a lista tinha encurtado.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Passo 6 — Promover na população certa">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-b">Bloco B · agir</span>
+  <div class="step-marker">
+    <div class="step-num b">6</div>
+    <div class="step-meta">
+      <span class="step-file">promover.py --validacao validacao_atual</span>
+      <span class="step-obj">A mesma comparação. Muda só quem decide.</span>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code">python promover.py --versao 2 --validacao validacao_atual</div>
+</div>
+
+  <div class="bloco">
+  <div class="barra"><span class="arq">as duas últimas linhas</span>
+    <div class="code-right"><span class="lbadge">saída</span></div></div>
+  <div class="code" style="display:block;max-height:none">----------------------------------------------------------
+decidido em      <span class="s">validacao_atual</span>
+ganho de f1      <span class="s">+0.1348</span>   (minimo exigido +0.0050)
+veredito         <span class="s">APROVADO</span>
+custo em validacao_congelada   <span class="o">-0.0042</span>   &lt;- a outra metade da decisao
+
+@champion  v1 -> <span class="s">v2</span>
+Clique em 'Recarregar modelo' no front para a API pegar a troca.</div>
+</div>
+
+  <div class="callout co-ok" style="margin:14px 0 12px;">
+    <div class="ct">Repare que as duas tabelas são idênticas às do slide anterior</div>
+    <p>Os números não mudaram. <strong style="color:var(--text)">Mudou quem decide</strong> — e a linha de custo continua impressa, para a decisão nunca parecer gratuita. Promover aqui é dizer, em voz alta: <i>"aceito perder 0,004 na população histórica para ganhar 0,135 na nova"</i>.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Uma ressalva honesta sobre as 420 linhas</div>
+    <p>Ganho medido em conjunto pequeno tem intervalo de confiança largo. Com +0,13 não há dúvida. <strong style="color:var(--text)">Se fosse +0,01, a resposta profissional seria esperar mais dados</strong> em vez de promover — e é para isso que o <code>GANHO_MINIMO</code> existe no config: ele é a linha abaixo da qual a troca não paga o risco de mexer em produção.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="A produção trocou sem deploy">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-c">Bloco C · verificar</span>
+  <div class="step-marker">
+    <div class="step-num c">7</div>
+    <div class="step-meta">
+      <span class="step-file">Recarregar modelo</span>
+      <span class="step-obj">Nenhuma linha de código foi editada.</span>
+    </div>
+  </div>
+
+  <div class="test-box">
+    <div class="tt">🔍 Faça e confira, nesta ordem</div>
+    <ol>
+      <li><code>curl 127.0.0.1:8000/saude</code> → ainda diz <code>"versao_modelo": "1"</code>. A API mantém o modelo em memória e não percebe a promoção sozinha</li>
+      <li>No front, clique em <strong>Recarregar modelo</strong></li>
+      <li><code>/saude</code> de novo → <code>"versao_modelo": "2"</code></li>
+      <li>No MLflow, aba <strong>Models</strong>: o <code>@champion</code> mudou de linha, o <code>@challenger</code> não existe mais, e a v2 ganhou a tag <code>validado_em</code></li>
+      <li>Aba <strong>Novo colaborador</strong>, botão <strong>Caso de risco alto</strong> → a resposta agora vem com <code>"versao_modelo": "2"</code></li>
+    </ol>
+  </div>
+
+  <div class="g2" style="margin:14px 0;">
+    <div class="card">
+      <strong style="color:var(--green);font-size:.88rem">O que mudou no seu repositório</strong>
+      <p style="color:var(--muted);font-size:.82rem;line-height:1.7;margin-top:8px"><b>Nada.</b> Nenhum arquivo editado, nenhum commit, nenhum restart do uvicorn. Foi um <code style="color:var(--text)">UPDATE</code> numa linha de <code style="color:var(--text)">registered_model_aliases</code>.</p>
+    </div>
+    <div class="card">
+      <strong style="color:var(--cyan);font-size:.88rem">Por que isso é possível</strong>
+      <p style="color:var(--muted);font-size:.82rem;line-height:1.7;margin-top:8px">Porque o <code style="color:var(--text)">main.py</code> pede <code style="color:var(--text)">models:/turnover_rh@champion</code> e não um número. <b>A indireção do alias</b> é o que transforma uma decisão de modelo em algo que não passa por deploy.</p>
+    </div>
+  </div>
+
+  <div class="callout co-ok">
+    <div class="ct">E o caminho de volta é o mesmo</div>
+    <p><code>python promover.py --versao 1 --forcar</code> devolve a produção para a v1. <strong style="color:var(--text)">Uma linha, a qualquer hora da noite</strong> — e fica registrada, com <code>forcado=true</code>. Essa é a resposta para a pergunta que ficou na Aula 1.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="O mesmo lote, o modelo novo">
+<div class="slide-inner slide-scroll">
+
+  <span class="bloco-mark bl-c">Bloco C · verificar</span>
+  <div class="step-marker">
+    <div class="step-num c">8</div>
+    <div class="step-meta">
+      <span class="step-file">Reenviar fevereiro</span>
+      <span class="step-obj">Medir a correção no dado exato que expôs o problema.</span>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-bottom:14px;">Esta é a verificação que fecha o ciclo. <strong style="color:var(--text)">Suba o mesmo <code class="inline">lote_aula2_fev.csv</code> outra vez</strong>, agora com a v2 em produção, e rode o monitor de novo. Não é trabalho repetido: é medir a correção no dado que produziu o incidente.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="c"># front -&gt; aba Enviar lote -&gt; lote_aula2_fev.csv (o mesmo arquivo)</span>
+python monitorar.py --lote lote_aula2_fev --gabarito gabarito_aula2_fev.csv</div>
+</div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin:14px 0;">
+    <table class="tbl">
+      <thead><tr><th>No mesmo lote de fevereiro</th><th>v1</th><th>v2</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><b>f1</b></td><td>0,5169</td><td><strong style="color:var(--green)">0,6865</strong></td><td>+0,170</td></tr>
+        <tr><td><b>recall</b></td><td>0,4685</td><td><strong style="color:var(--green)">0,7464</strong></td><td>+0,278 — a lista volta a pegar quem sai</td></tr>
+        <tr><td>precision</td><td>0,5765</td><td>0,6355</td><td>+0,059</td></tr>
+        <tr><td>accuracy</td><td>0,6129</td><td><strong style="color:var(--green)">0,6986</strong></td><td>+0,086</td></tr>
+        <tr><td>taxa de predição positiva</td><td>0,3593</td><td><strong style="color:var(--green)">0,5193</strong></td><td>a lista da Marina volta ao tamanho esperado</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-ok" style="margin-bottom:12px;">
+    <div class="ct">Este é o número que você manda para a Marina</div>
+    <p>Não é o +0,1348 do portão, que foi medido nas 420 linhas de validação. É este: <strong style="color:var(--text)">no arquivo de fevereiro inteiro, a lista de risco voltou de 36% para 52% das pessoas, e o recall de 47% para 75%</strong>. Ela reclamou de uma lista curta demais; a resposta é que a lista curta era erro, e agora não é mais.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Por que reenviar não duplica o lote</div>
+    <p>A tabela <code>predicoes</code> guarda as duas pontuações — o histórico completo, com a versão que respondeu cada uma. Mas o <code>carregar_lote</code> usa <code>DISTINCT ON (id_pessoa) ... ORDER BY id DESC</code>: vale a <strong style="color:var(--text)">predição mais recente</strong> de cada pessoa. O que você lê é sempre "o que a produção responde hoje sobre este lote".</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="A referência também envelhece">
+<div class="slide-inner slide-scroll">
+
+  <span class="ptag">preparando março</span>
+  <h2 class="sec-title">Você trocou o modelo. E a <span style="color:var(--purple)">referência</span> do monitor?</h2>
+  <p class="lead">Este slide não tem run para rodar — é uma decisão para tomar antes da próxima aula. O <code class="inline">monitorar.py</code> compara o lote com <code class="inline">treino_v1</code> por padrão. Depois de promover um modelo treinado na população nova, esse padrão passa a mentir.</p>
+
+  <div class="code-wrap">
+  <div class="code-header" onclick="toggleCode(this)">
+    <span class="fname">terminal</span>
+    <div class="code-right"><span class="lbadge">rodar</span><button class="copy-btn" onclick="copyCode(event, this)">Copiar</button><span class="code-toggle-btn">Clique para ver</span></div>
+  </div>
+  <div class="code"><span class="c"># fevereiro contra o mundo velho -- ainda acusa 7 features em drift</span>
+python monitorar.py --lote lote_aula2_fev --referencia treino_v1
+
+<span class="c"># fevereiro contra si mesmo -- a nova normalidade, base de comparacao para marco</span>
+python monitorar.py --lote lote_aula2_fev --referencia lote_aula2_fev</div>
+</div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin:14px 0;">
+    <table class="tbl">
+      <thead><tr><th>Referência</th><th>features em drift</th><th>maior KS</th><th>O que está sendo dito</th></tr></thead>
+      <tbody>
+        <tr><td><code>treino_v1</code></td><td><strong style="color:var(--orange)">7</strong></td><td>0,564</td><td>"este mês é diferente de dezembro" — verdade, e irrelevante a partir de agora</td></tr>
+        <tr><td><code>lote_aula2_fev</code></td><td><strong style="color:var(--green)">0</strong></td><td>0,000</td><td>"este é o novo normal" — a base para comparar março</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout co-err" style="margin-bottom:12px;">
+    <div class="ct">O que acontece se você não trocar</div>
+    <p>Todo lote futuro vai acusar 7 features em drift, para sempre, contra um mundo que não existe mais. Em duas semanas a equipe para de olhar o relatório — e <strong style="color:var(--text)">um alarme que sempre toca é um alarme desligado</strong>. É assim que monitoramento morre na prática: não por falta de ferramenta, por excesso de falso positivo.</p>
+  </div>
+
+  <div class="callout co-info">
+    <div class="ct">Guarde este contraste para março</div>
+    <p>As razões desta aula foram <strong style="color:var(--text)">5,76 · 11,24 · 0,372</strong> — números tortos, de gente diferente, com contagens de eventos alteradas e percentual de zeros deslocado. Na próxima aula elas vão ser <strong style="color:var(--text)">60 e 100 exatos</strong>, com as contagens <u>intactas</u> e o percentual de zeros <u>idêntico</u>. Mesma coluna do relatório, diagnóstico oposto, ação oposta.</p>
+  </div>
+
+</div>
+</div>
+<div class="slide" data-title="Conferência final">
+<div class="slide-inner slide-scroll">
+
+  <span class="gtag">✅ conferência final</span>
+  <h2 class="sec-title">O que tem que estar de pé</h2>
+
+  <div class="final-check" id="final-checklist">
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">tabela validacao_atual criada pelo sql/02</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">config, banco.py e monitorar.py com os 5 ajustes de preparação</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">front substituído: filtro por lote e tabela de comparação</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">lote_aula2_fev pontuado, taxa positiva 0,3593 observada</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">run de monitoramento SEM gabarito: 7 em drift, csv como artefato</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">diagnóstico escrito, com as 3 evidências que eliminam B, C e D</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">run de monitoramento COM gabarito: f1 0,5169 · accuracy 0,6129</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">run de retreino com lineage=completo e dois log_input</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">versão 2 no registry com @challenger</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">run de promoção REPROVADO, decidido em validacao_congelada</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">run de promoção APROVADO, decidido em validacao_atual</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">v2 com a tag validado_em, @challenger removido</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">/saude em versao_modelo 2, sem nenhum arquivo editado</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">fevereiro reenviado com a v2: f1 0,6865 · recall 0,7464</div></div>
+    <div class="fc-item"><div class="fc-check">✓</div><div class="fc-text">você sabe dizer por que a v2 foi reprovada da primeira vez</div></div>
+  </div>
+
+  <div class="callout co-warn" style="margin-bottom:12px;">
+    <div class="ct">Os quatro erros mais comuns</div>
+    <p>Rodar o <code>treinar.py</code> sem ter subido o lote pelo front (ele lê as features da tabela <code>predicoes</code>). Esquecer o <code>sql/02_validacao_atual.sql</code>. Esquecer o <b>Recarregar modelo</b>. E — o mais sutil — esquecer o <code>mlflow.set_experiment()</code> num script novo: o run cai em <code>Default</code>, fora da gaveta onde vive o histórico do modelo, e não aparece no <b>Compare</b>.</p>
+  </div>
+
+  <div class="bridge">
+    <h3 class="slide-h3" style="margin-bottom:10px;">🔮 Próxima aula — quando retreinar é a resposta errada</h3>
+    <p style="color:var(--muted);font-size:.88rem;line-height:1.7;margin-bottom:14px;">Março chega com o F1 em <strong style="color:var(--text)">0,15</strong> — uma queda muito pior que a de hoje. E retreinar vai ser exatamente o que você <u>não</u> deve fazer. A pista está em três colunas do mesmo relatório que você já sabe ler.</p>
+    <div class="next-pills">
+      <div class="next-pill">fatores redondos</div>
+      <div class="next-pill">contagens intactas</div>
+      <div class="next-pill">zeros idênticos</div>
+      <div class="next-pill">nenhuma versão nova</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+</div>
+
+<script>
+// ══════════════════════════ BG CANVAS ══════════════════════════
+const bgCanvas = document.getElementById('bg');
+const bgCtx = bgCanvas.getContext('2d');
+let BW, BH, nodes = [];
+function resizeBg() { BW = bgCanvas.width = window.innerWidth; BH = bgCanvas.height = window.innerHeight; }
+resizeBg(); window.addEventListener('resize', () => { resizeBg(); initNodes(); });
+function initNodes() {
+  nodes = [];
+  const n = Math.floor((BW * BH) / 18000);
+  for (let i = 0; i < n; i++) nodes.push({ x:Math.random()*BW, y:Math.random()*BH, vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4, r:Math.random()*2+1 });
+}
+initNodes();
+function drawBg() {
+  bgCtx.clearRect(0, 0, BW, BH);
+  nodes.forEach(n => { n.x += n.vx; n.y += n.vy; if(n.x<0||n.x>BW)n.vx*=-1; if(n.y<0||n.y>BH)n.vy*=-1; });
+  for (let i = 0; i < nodes.length; i++) for (let j = i+1; j < nodes.length; j++) {
+    const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y, d=Math.sqrt(dx*dx+dy*dy);
+    if (d < 120) { bgCtx.beginPath(); bgCtx.moveTo(nodes[i].x,nodes[i].y); bgCtx.lineTo(nodes[j].x,nodes[j].y); bgCtx.strokeStyle=`rgba(124,58,237,${.15*(1-d/120)})`; bgCtx.lineWidth=.5; bgCtx.stroke(); }
+  }
+  nodes.forEach(n => { bgCtx.beginPath(); bgCtx.arc(n.x,n.y,n.r,0,Math.PI*2); bgCtx.fillStyle='rgba(0,229,255,.5)'; bgCtx.fill(); });
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// ══════════════════════════ SLIDE ENGINE ══════════════════════════
+const slideEls = Array.from(document.querySelectorAll('.slide'));
+const TOTAL = slideEls.length;
+let current = 0, maxReached = 0;
+const progressBar = document.getElementById('progress-bar');
+const counter     = document.getElementById('slide-counter');
+const titleBar    = document.getElementById('slide-title-bar');
+const navPrev     = document.getElementById('nav-prev');
+const navNext     = document.getElementById('nav-next');
+const dotsEl      = document.getElementById('dots');
+
+slideEls.forEach((_, i) => {
+  const d = document.createElement('div'); d.className = 'dot'; d.onclick = () => goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function goTo(n) {
+  if (n < 0 || n >= TOTAL) return;
+  slideEls.forEach((s, i) => { s.classList.remove('active', 'prev'); if (i < n) s.classList.add('prev'); });
+  slideEls[n].classList.add('active');
+  slideEls[n].scrollTop = 0;
+  current = n;
+  if (n > maxReached) maxReached = n;
+  updateUI();
+  onSlideEnter(current);
+}
+
+function updateUI() {
+  progressBar.style.width = ((current + 1) / TOTAL * 100) + '%';
+  counter.textContent = `${current + 1} / ${TOTAL}`;
+  titleBar.textContent = slideEls[current].dataset.title || '';
+  navPrev.classList.toggle('disabled', current === 0);
+  navNext.classList.toggle('disabled', current === TOTAL - 1);
+  document.querySelectorAll('.dot').forEach((d,i) => {
+    d.classList.toggle('active', i === current);
+    d.classList.toggle('done', i < current);
+  });
+}
+
+navPrev.onclick = () => goTo(current - 1);
+navNext.onclick = () => goTo(current + 1);
+document.addEventListener('keydown', e => {
+  if (e.target.closest('.code')) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+});
+requestAnimationFrame(() => goTo(0));
+
+function onSlideEnter(n) {
+  if (slideEls[n].dataset.title === 'Conferência final') {
+    const el = document.getElementById('final-checklist');
+    el.classList.remove('play'); void el.offsetWidth; el.classList.add('play');
+  }
+}
+
+// ══════════════════════════ CÓDIGO ESCONDIDO ══════════════════════════
+function toggleCode(header) {
+  const wrap = header.parentElement;
+  const open = wrap.classList.toggle('open');
+  const btn = header.querySelector('.code-toggle-btn');
+  if (btn) btn.textContent = open ? 'Ocultar' : 'Clique para ver';
+}
+
+// ══════════════════════════ COPIAR CÓDIGO ══════════════════════════
+function copyCode(evento, botao) {
+  evento.stopPropagation();
+  const wrap = botao.closest('.code-wrap');
+  const texto = wrap.querySelector('.code').textContent;
+  const feedback = (ok) => {
+    botao.textContent = ok ? '✓ Copiado' : 'Falhou';
+    botao.classList.toggle('done', ok);
+    setTimeout(() => { botao.textContent = 'Copiar'; botao.classList.remove('done'); }, 1800);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(texto).then(() => feedback(true), () => feedback(false));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    feedback(ok);
+  }
+}
+
+/* ══════════════════════ utilidades ══════════════════════ */
+function lcg(seed) {            // gerador deterministico: todo aluno ve o mesmo
+  let s = seed;
+  return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+}
+function normal(rnd, media, dp) {
+  const u = Math.max(rnd(), 1e-9), v = rnd();
+  return media + dp * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ══════════════════════ 1 · KS visual ══════════════════════ */
+(function () {
+  const svg = document.getElementById('ks-svg');
+  if (!svg) return;
+  const W = 700, H = 260, PAD = 42;
+  const rnd = lcg(7);
+  const REF = Array.from({ length: 400 }, () => normal(rnd, 50, 14));
+  const BASE = Array.from({ length: 400 }, () => normal(rnd, 50, 14));
+
+  const cdf = (amostra, x) => amostra.reduce((a, v) => a + (v <= x ? 1 : 0), 0) / amostra.length;
+  const ex = v => PAD + (v / 110) * (W - 2 * PAD);
+  const ey = p => H - PAD - p * (H - 2 * PAD);
+
+  function desenhar() {
+    const desl = +document.getElementById('ks-desl').value;
+    const esc = +document.getElementById('ks-esc').value;
+    const atual = BASE.map(v => (v - 50) * esc + 50 + desl);
+
+    const grade = Array.from({ length: 120 }, (_, i) => i);
+    let melhor = { x: 0, a: 0, b: 0, d: 0 };
+    const pr = [], pa = [];
+    for (const x of grade) {
+      const a = cdf(REF, x), b = cdf(atual, x);
+      pr.push(`${ex(x)},${ey(a)}`); pa.push(`${ex(x)},${ey(b)}`);
+      if (Math.abs(a - b) > melhor.d) melhor = { x, a, b, d: Math.abs(a - b) };
+    }
+
+    svg.innerHTML = `
+      <line x1="${PAD}" y1="${ey(0)}" x2="${W - PAD}" y2="${ey(0)}" stroke="rgba(127,168,192,.3)"/>
+      <line x1="${PAD}" y1="${ey(0)}" x2="${PAD}" y2="${ey(1)}" stroke="rgba(127,168,192,.3)"/>
+      <text x="${PAD - 8}" y="${ey(1)}" fill="#7fa8c0" font-size="10" text-anchor="end">1,0</text>
+      <text x="${PAD - 8}" y="${ey(0) + 4}" fill="#7fa8c0" font-size="10" text-anchor="end">0</text>
+      <text x="${W / 2}" y="${H - 8}" fill="#7fa8c0" font-size="10" text-anchor="middle">valor da feature →</text>
+      <polyline points="${pr.join(' ')}" fill="none" stroke="#00ff88" stroke-width="2"/>
+      <polyline points="${pa.join(' ')}" fill="none" stroke="#ff6b35" stroke-width="2"/>
+      <line x1="${ex(melhor.x)}" y1="${ey(melhor.a)}" x2="${ex(melhor.x)}" y2="${ey(melhor.b)}"
+            stroke="#00e5ff" stroke-width="3"/>
+      <circle cx="${ex(melhor.x)}" cy="${ey(melhor.a)}" r="3.5" fill="#00e5ff"/>
+      <circle cx="${ex(melhor.x)}" cy="${ey(melhor.b)}" r="3.5" fill="#00e5ff"/>
+      <text x="${ex(melhor.x) + 10}" y="${ey((melhor.a + melhor.b) / 2)}"
+            fill="#00e5ff" font-size="12" font-family="IBM Plex Mono">KS = ${melhor.d.toFixed(3)}</text>`;
+
+    const ks = melhor.d;
+    const el = document.getElementById('ks-ver');
+    el.textContent = ks > 0.2 ? 'acima de 0,2 — entraria no relatório como drift'
+      : 'abaixo de 0,2 — o relatório não acusaria nada';
+    el.className = 'w-ver ' + (ks > 0.2 ? 'alto' : 'baixo');
+    document.getElementById('ks-num').textContent = ks.toFixed(3);
+    const razao = (atual.reduce((a, b) => a + b, 0) / atual.length)
+      / (REF.reduce((a, b) => a + b, 0) / REF.length);
+    document.getElementById('ks-razao').textContent = razao.toFixed(3);
+  }
+  ['ks-desl', 'ks-esc'].forEach(id =>
+    document.getElementById(id).addEventListener('input', desenhar));
+  desenhar();
+})();
+
+/* ══════════════════════ 2 · os três drifts ══════════════════════ */
+(function () {
+  const svg = document.getElementById('dr-svg');
+  if (!svg) return;
+  const W = 700, H = 320, PAD = 46;
+  const rnd = lcg(21);
+  const BASE = Array.from({ length: 220 }, () => ({
+    x: Math.min(98, Math.max(2, normal(rnd, 28, 16))),
+    y: Math.min(98, Math.max(2, normal(rnd, 55, 20))),
+    r: rnd(),
+  }));
+
+  const ex = v => PAD + (v / 100) * (W - 2 * PAD);
+  const ey = v => H - PAD - (v / 100) * (H - 2 * PAD);
+
+  // regra "verdadeira": risco cresce com hora extra e com marcacao irregular
+  const risco = (p, invertido) => {
+    const s = invertido ? (-0.7 * p.x + 0.5 * p.y - 6) : (0.7 * p.x + 0.5 * p.y - 45);
+    return 1 / (1 + Math.exp(-s / 12));
+  };
+
+  const CENARIOS = {
+    base: { desl: 0, deslY: 0, invertido: false, corte: 0.5,
+      px: 'igual', pyx: 'igual', ver: '—',
+      txt: 'O retrato do treino. A fronteira separa quem sai de quem fica, e o modelo aprendeu essa linha.' },
+    covariate: { desl: 30, deslY: -28, invertido: false, corte: 0.5,
+      px: 'MUDOU', pyx: 'igual', ver: 'sim',
+      txt: 'A nuvem andou para a <b>direita e para baixo</b>: entrou gente que faz muito mais hora extra e quase nenhuma marcação irregular — o perfil 12x36 de Dourados. <b>A fronteira não mudou</b>, a regra continua valendo. O modelo piora porque quase não tinha exemplos naquela região, não porque a regra mudou.' },
+    concept: { desl: 0, deslY: 0, invertido: true, corte: 0.5,
+      px: 'igual', pyx: 'MUDOU', ver: 'NÃO',
+      txt: 'As mesmas pessoas, nos mesmos lugares — e as cores <b>inverteram</b>. A empresa migrou para banco de horas e hora extra passou a ser escolha bem paga: virou sinal de engajamento, não de exaustão. Nenhum teste de distribuição vê isso.' },
+    label: { desl: 0, deslY: 0, invertido: false, corte: 0.63,
+      px: 'quase igual', pyx: 'igual', ver: 'parcialmente',
+      txt: 'Nuvem no mesmo lugar, fronteira no mesmo lugar, e <b>menos pontos vermelhos</b>. O mercado esfriou: quem sai continua tendo o mesmo perfil, só sai menos gente. O modelo fica descalibrado — prevê positivo demais — sem estar errado na ordenação.' },
+  };
+  let atual = 'base';
+
+  function desenhar() {
+    const c = CENARIOS[atual];
+    const pontos = BASE.map(p => {
+      const q = { x: Math.min(99, Math.max(1, p.x + c.desl)),
+                  y: Math.min(99, Math.max(1, p.y + (c.deslY || 0))) };
+      return { ...q, sai: risco(q, c.invertido) > c.corte * (0.6 + 0.8 * p.r) };
+    });
+    const positivos = pontos.filter(p => p.sai).length;
+
+    // fronteira: onde risco == corte medio
+    const linha = [];
+    for (let x = 0; x <= 100; x += 2) {
+      const y = c.invertido ? (6 - 0.7 * x) / -0.5 : (45 - 0.7 * x) / 0.5;
+      if (y >= 0 && y <= 100) linha.push(`${ex(x)},${ey(y)}`);
+    }
+
+    svg.innerHTML = `
+      <line x1="${PAD}" y1="${ey(0)}" x2="${W - PAD}" y2="${ey(0)}" stroke="rgba(127,168,192,.3)"/>
+      <line x1="${PAD}" y1="${ey(0)}" x2="${PAD}" y2="${ey(100)}" stroke="rgba(127,168,192,.3)"/>
+      <text x="${W / 2}" y="${H - 8}" fill="#7fa8c0" font-size="10" text-anchor="middle">hora extra →</text>
+      <text x="14" y="${H / 2}" fill="#7fa8c0" font-size="10" transform="rotate(-90 14 ${H / 2})" text-anchor="middle">marcações irregulares →</text>
+      ${linha.length > 1 ? `<polyline points="${linha.join(' ')}" fill="none" stroke="#00e5ff"
+          stroke-width="2" stroke-dasharray="6 4"/>` : ''}
+      ${pontos.map(p => `<circle cx="${ex(p.x)}" cy="${ey(p.y)}" r="3.2"
+          fill="${p.sai ? '#ff4d6d' : '#00ff88'}" opacity=".72"/>`).join('')}
+      <text x="${W - PAD}" y="${PAD - 14}" fill="#00e5ff" font-size="10"
+            font-family="IBM Plex Mono" text-anchor="end">- - -  fronteira aprendida pelo modelo</text>`;
+
+    document.getElementById('dr-px').textContent = c.px;
+    document.getElementById('dr-pyx').textContent = c.pyx;
+    document.getElementById('dr-ver').textContent = c.ver;
+    document.getElementById('dr-taxa').textContent =
+      (100 * positivos / pontos.length).toFixed(0) + '%';
+    document.getElementById('dr-txt').innerHTML = c.txt;
+    document.querySelectorAll('.dr-btn').forEach(b =>
+      b.classList.toggle('ativo', b.dataset.cen === atual));
+  }
+  document.querySelectorAll('.dr-btn').forEach(b => b.onclick = () => {
+    atual = b.dataset.cen; desenhar();
+  });
+  desenhar();
+})();
+
+/* ══════════════════════ 3 · label lag ══════════════════════ */
+(function () {
+  const svg = document.getElementById('lag-svg');
+  if (!svg) return;
+  const W = 700, H = 150, PAD = 46, MESES = 7;
+  const rnd = lcg(33);
+  // 300 pessoas pontuadas no mes 0.
+  // quem SAI tem o rotulo fechado quando sai (mes 1 a 5).
+  // quem FICA so tem rotulo fechado no fim da janela (mes 6): ate la, ninguem
+  // sabe se a pessoa vai sair mes que vem. Isso e censura a direita.
+  const PESSOAS = Array.from({ length: 300 }, () => {
+    const sai = rnd() < 0.44;
+    return {
+      sai,
+      fecha: sai ? 1 + Math.floor(rnd() * 5) : 6,
+      previu: rnd() < (sai ? 0.72 : 0.36),   // recall real ~0,72
+    };
+  });
+
+  function desenhar() {
+    const mes = +document.getElementById('lag-mes').value;
+    const fechados = PESSOAS.filter(p => p.fecha <= mes);
+    const conta = m => PESSOAS.filter(p => p.fecha === m).length;
+
+    const largura = (W - 2 * PAD) / MESES;
+    svg.innerHTML = Array.from({ length: MESES }, (_, m) => {
+      const n = conta(m);
+      const alt = (n / 190) * (H - 52);
+      const dentro = m <= mes;
+      return `<rect x="${PAD + m * largura + 5}" y="${H - 34 - alt}"
+                width="${largura - 10}" height="${Math.max(alt, 1)}"
+                fill="${dentro ? '#00ff88' : 'rgba(127,168,192,.22)'}" rx="3"/>
+        <text x="${PAD + m * largura + largura / 2}" y="${H - 18}" fill="${dentro ? '#e8f4f8' : '#7fa8c0'}"
+              font-size="10" font-family="IBM Plex Mono" text-anchor="middle">mês ${m}</text>`;
+    }).join('') + `<text x="${PAD}" y="16" fill="#7fa8c0" font-size="10"
+        font-family="IBM Plex Mono">rótulos que fecham em cada mês</text>`;
+
+    const tp = fechados.filter(p => p.sai && p.previu).length;
+    const fn = fechados.filter(p => p.sai && !p.previu).length;
+    const fp = fechados.filter(p => !p.sai && p.previu).length;
+    const recall = (tp + fn) ? tp / (tp + fn) : 0;
+    const prec = (tp + fp) ? tp / (tp + fp) : 0;
+    const f1 = (recall + prec) ? 2 * recall * prec / (recall + prec) : 0;
+
+    const tpR = PESSOAS.filter(p => p.sai && p.previu).length;
+    const fnR = PESSOAS.filter(p => p.sai && !p.previu).length;
+    const fpR = PESSOAS.filter(p => !p.sai && p.previu).length;
+    const recallR = tpR / (tpR + fnR), precR = tpR / (tpR + fpR);
+    const f1R = 2 * recallR * precR / (recallR + precR);
+
+    const taxa = fechados.length ? fechados.filter(p => p.sai).length / fechados.length : 0;
+    const set = (id, v) => document.getElementById(id).textContent = v;
+    set('lag-fech', `${fechados.length} de 300`);
+    set('lag-taxa', (100 * taxa).toFixed(0) + '%');
+    set('lag-f1', fechados.length ? f1.toFixed(3) : '—');
+    set('lag-f1r', f1R.toFixed(3));
+    set('lag-prec', fechados.length ? prec.toFixed(3) : '—');
+
+    const viés = Math.abs(taxa - 0.44) > 0.10;
+    const el = document.getElementById('lag-ver');
+    el.className = 'w-ver ' + (viés ? 'alto' : 'baixo');
+    el.innerHTML = viés
+      ? `A amostra fechada tem <b>${(100 * taxa).toFixed(0)}%</b> de saídas, contra 44% na realidade — só quem saiu já tem rótulo. Qualquer métrica calculada agora está enviesada.`
+      : `A janela fechou. Agora a amostra representa a população e a métrica pode ser lida.`;
+  }
+  document.getElementById('lag-mes').addEventListener('input', desenhar);
+  desenhar();
+})();
+</script>
+</body>
+</html>
